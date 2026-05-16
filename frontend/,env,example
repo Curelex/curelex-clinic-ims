@@ -1,0 +1,8 @@
+# IMS API (points to merged backend)
+VITE_IMS_API_URL=http://localhost:5000/api/ims/api/v1
+
+# Clinic API (will add when we have clinic frontend files)
+VITE_CLINIC_API_URL=http://localhost:5000/api/clinic
+
+# Socket URL for clinic
+VITE_SOCKET_URL=http://localhost:5000
