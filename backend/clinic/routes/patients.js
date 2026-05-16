@@ -5,8 +5,7 @@ import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
-// ── Helper: emit live queue update to all patients in that room ───────────────
-// At the top of the file, modify broadcastQueueUpdate
+// ── Helper: emit live queue update to all patients tracking this doctor ───────
 async function broadcastQueueUpdate(io, clinicId, doctorId, date) {
   if (!io) return;
   try {
@@ -33,17 +32,6 @@ async function broadcastQueueUpdate(io, clinicId, doctorId, date) {
     console.error('broadcastQueueUpdate error:', err.message);
   }
 }
-
-// In the route handlers, get io from req.app.get('io')
-router.post('/', auth, async (req, res) => {
-  // ... existing code ...
-  
-  // Get io from the main app
-  const io = req.app.get('io');
-  await broadcastQueueUpdate(io, clinicId, doctorId, date);
-  
-  // ... rest of code
-});
 
 // ── GET /api/patients  — list with optional filters ──────────────────────────
 router.get('/', auth, async (req, res) => {
@@ -134,7 +122,7 @@ router.patch('/:id/status', auth, async (req, res) => {
 
     if (!patient) return res.status(404).json({ message: 'Patient not found.' });
 
-    // 🔴 KEY: Broadcast live queue update to all patients tracking this doctor
+    // Broadcast live queue update to all patients tracking this doctor
     const io = req.app.get('io');
     await broadcastQueueUpdate(io, clinicId, patient.doctorId, patient.date);
 
@@ -175,7 +163,7 @@ router.patch('/:id/payment', auth, async (req, res) => {
       { new: true }
     );
 
-    if (!patient) return res.status(404).json({ message: 'Patient not found.' });
+    if (!patient) return res.status(404).json({ message: err.message });
     res.json(patient);
   } catch (err) {
     res.status(500).json({ message: err.message });

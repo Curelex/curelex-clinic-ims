@@ -501,7 +501,7 @@ export default function LandingPage() {
     try {
       const data = await apiRegister(form);
       login({ type: 'admin', clinicId: data.clinicId, user: data.clinic });
-      navigate('/clinic/dashboard', { replace: true });
+      window.location.href = '/clinic/dashboard';
     } catch (e) {
       setErr(e.message || 'Registration failed. Please try again.');
     } finally {
@@ -524,7 +524,7 @@ export default function LandingPage() {
       login({ type: data.role, clinicId: data.clinicId, user: data.clinic || data.user || null });
 
       const redirectPath = data.role === 'superadmin' ? '/clinic/superadmin' : '/clinic/dashboard';
-      navigate(redirectPath, { replace: true });
+      window.location.href = redirectPath;
     } catch (e) {
       setErr(e.message || 'Login failed. Please check your credentials.');
     } finally {

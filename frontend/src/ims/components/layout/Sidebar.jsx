@@ -1,15 +1,16 @@
 import { NavLink } from "react-router-dom";
 import usePermissions from "../../hooks/usePermissions";
 
+// Paths are relative — React Router resolves them against the current /ims/* base
 const navItems = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/products", label: "Products", adminOnly: true },
-  { to: "/inventory", label: "Inventory", adminOnly: true },
-  { to: "/sales", label: "Sales" },
-  { to: "/purchases", label: "Purchases", adminOnly: true },
-  { to: "/customers", label: "Customers" },
-  { to: "/suppliers", label: "Suppliers", adminOnly: true },
-  { to: "/reports", label: "Reports" }
+  { to: "dashboard",  label: "Dashboard" },
+  { to: "products",   label: "Products",  adminOnly: true },
+  { to: "inventory",  label: "Inventory", adminOnly: true },
+  { to: "sales",      label: "Sales" },
+  { to: "purchases",  label: "Purchases", adminOnly: true },
+  { to: "customers",  label: "Customers" },
+  { to: "suppliers",  label: "Suppliers", adminOnly: true },
+  { to: "reports",    label: "Reports" },
 ];
 
 const Sidebar = () => {

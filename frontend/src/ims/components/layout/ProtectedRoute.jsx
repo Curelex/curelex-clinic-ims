@@ -9,8 +9,11 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (!user) {
-    // Save the attempted path for redirect after login
-    sessionStorage.setItem("ims_redirectPath", window.location.pathname);
+    // Only save the attempted path if it's a real protected page (not login itself)
+    const currentPath = window.location.pathname;
+    if (!currentPath.includes("/ims/login")) {
+      sessionStorage.setItem("ims_redirectPath", currentPath);
+    }
     return <Navigate to="/ims/login" replace />;
   }
 

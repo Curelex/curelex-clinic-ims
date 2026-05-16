@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import MainLayout from "./components/layout/MainLayout";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -16,25 +15,11 @@ import SuppliersPage from "./pages/SuppliersPage";
 import { Toaster } from "react-hot-toast";
 
 function IMSAppContent() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    // Handle redirect after login - strip /ims from path
-    const redirectPath = sessionStorage.getItem("ims_redirectPath");
-    if (redirectPath && redirectPath !== "/") {
-      sessionStorage.removeItem("ims_redirectPath");
-      // Remove /ims prefix if present
-      const cleanPath = redirectPath.replace(/^\/ims/, '');
-      navigate(cleanPath, { replace: true });
-    }
-  }, [navigate]);
-
   return (
     <>
       <Toaster position="top-right" />
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="login" element={<LoginPage />} />
         <Route
           path="/"
           element={
@@ -43,7 +28,7 @@ function IMSAppContent() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="inventory" element={<InventoryPage />} />

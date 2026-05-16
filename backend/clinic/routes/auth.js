@@ -44,8 +44,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { role, email, password } = req.body;
-    console.log(role,email,password);
-    console.log(env.superAdminEmail);
+    
     // Super admin
     if (role === 'superadmin') {
       if (
