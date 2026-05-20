@@ -26,7 +26,7 @@ Curelex-IMS/
 │       ├── models/            # Mongoose models
 │       ├── routes/            # API route definitions
 │       ├── middleware/        # Auth middleware
-│       └── utils/             # SMS helpers
+│       └── utils/             # Utility functions
 │
 └── frontend/
     └── src/

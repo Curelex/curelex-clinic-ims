@@ -3,10 +3,11 @@ import {
   DashboardLayout, Card, Stat, Btn, Badge, Input, Select,
   Textarea, Modal, Alert, SectionHeader, Empty, TokenBadge,
 } from '../components/UI';
+import { FileUploadSection } from '../components/FileUpload';
 import { today, currentTime } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 import { AllPatients } from './AdminDashboard';
-import { apiSendTokenSMS } from '../utils/api'; // ✅ FIXED: import centralized SMS function
+
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -90,90 +91,13 @@ function PhoneInput({ label, value, onChange, placeholder }) {
   );
 }
 
-// ✅ FIXED: SMSButton now uses apiSendTokenSMS from api.js (no manual fetch, no authToken prop)
-// api.js request() already reads token from localStorage via getToken() automatically
-function SMSButton({ patient, size = 'sm' }) {
-  const [status, setStatus] = useState('idle'); // idle | sending | sent | error
-  const [trackUrl, setTrackUrl] = useState('');
-  const [errMsg,   setErrMsg]   = useState('');
 
-  const hasPhone = patient.phone && patient.phone.length === 10;
-
-  async function handleSend() {
-    if (!hasPhone) {
-      setStatus('error');
-      setErrMsg('No valid 10-digit phone number for this patient.');
-      return;
-    }
-    setStatus('sending');
-    setErrMsg('');
-    try {
-      // ✅ FIXED: use apiSendTokenSMS which uses getToken() from localStorage internally
-      const result = await apiSendTokenSMS(patient._id || patient.id);
-      setTrackUrl(result.trackUrl || '');
-      setStatus(result.success ? 'sent' : 'error');
-      if (!result.success) setErrMsg(result.message || 'SMS failed');
-    } catch (e) {
-      setStatus('error');
-      setErrMsg(e.message);
-    }
-  }
-
-  if (status === 'sent') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#00a878', fontWeight: 700 }}>✅ SMS Sent!</span>
-        {trackUrl && (
-          <a href={trackUrl} target="_blank" rel="noreferrer"
-            style={{ fontSize: 11, color: '#1565a8', textDecoration: 'underline' }}>
-            🔗 Track Link
-          </a>
-        )}
-      </div>
-    );
-  }
-
-  if (status === 'error') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 11, color: '#e74c3c' }}>❌ {errMsg || 'Failed'}</span>
-        <button onClick={() => setStatus('idle')}
-          style={{ fontSize: 11, color: '#1565a8', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={handleSend}
-      disabled={status === 'sending' || !hasPhone}
-      title={!hasPhone ? 'Patient has no valid phone number' : 'Send SMS with token & tracking link'}
-      style={{
-        padding: size === 'sm' ? '5px 10px' : '9px 18px',
-        borderRadius: 8, border: 'none', cursor: hasPhone ? 'pointer' : 'not-allowed',
-        background: hasPhone
-          ? 'linear-gradient(135deg, #00b894, #00cec9)'
-          : '#e0e0e0',
-        color: hasPhone ? '#fff' : '#aaa',
-        fontWeight: 700, fontSize: size === 'sm' ? 12 : 14,
-        fontFamily: 'inherit', opacity: status === 'sending' ? 0.7 : 1,
-        display: 'flex', alignItems: 'center', gap: 5,
-        boxShadow: hasPhone ? '0 2px 8px rgba(0,184,148,0.3)' : 'none',
-        transition: '.15s',
-      }}
-    >
-      {status === 'sending' ? '⏳ Sending…' : '📱 Send SMS'}
-    </button>
-  );
-}
 
 /* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ══════════════════════════════════════════════════════════════ */
 export default function ReceptionistDashboard() {
-  const { session, logout, getPatients, getUsers, updatePatientStatus, updateFollowUp, addPatient } = useApp();
+  const { session, logout, getPatients, getUsers, updatePatientStatus, updateFollowUp, addPatient, uploadPatientFile, getPatientFiles, downloadPatientFile, deletePatientFile } = useApp();
   const [tab,       setTab]      = useState('register');
   const [patients,  setPatients] = useState([]);
   const [doctors,   setDoctors]  = useState([]);
@@ -256,7 +180,7 @@ export default function ReceptionistDashboard() {
       >
         {/* ✅ REMOVED authToken prop from all children — no longer needed */}
         {tab === 'register'  && <PatientRegister doctors={doctors} patients={patients} onRegistered={handleRegister} />}
-        {tab === 'queue'     && <TodayQueue todayQueue={todayQueue} doctors={doctors} onUpdateStatus={handleUpdateStatus} onUpdateFollowUp={handleUpdateFollowUp} />}
+        {tab === 'queue'     && <TodayQueue todayQueue={todayQueue} doctors={doctors} onUpdateStatus={handleUpdateStatus} onUpdateFollowUp={handleUpdateFollowUp} onUploadFile={uploadPatientFile} onGetFiles={getPatientFiles} onDownloadFile={downloadPatientFile} onDeleteFile={deletePatientFile} />}
         {tab === 'all'       && <AllPatients patients={patients} />}
         {tab === 'followups' && <FollowUpsTab patients={patients} onUpdateFollowUp={handleUpdateFollowUp} />}
 
@@ -283,24 +207,7 @@ function TokenPopup({ patient, onClose }) {
         <div style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 4 }}>Dr. {patient.doctorName}</div>
         <div style={{ fontSize: 12, color: 'var(--text-light)', marginBottom: 16 }}>{patient.date} · {patient.time}</div>
 
-        {/* ── SMS section ── */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(0,184,148,0.08), rgba(0,206,201,0.05))',
-          border: '1.5px solid rgba(0,184,148,0.25)',
-          borderRadius: 12, padding: '14px 16px', marginBottom: 16,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-        }}>
-          <div style={{ textAlign: 'left', flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#00a878', marginBottom: 2 }}>📱 Send Live Tracking SMS</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-              {patient.phone
-                ? `SMS will be sent to ${patient.phone}`
-                : '⚠️ No phone number — add phone to enable SMS'}
-            </div>
-          </div>
-          {/* ✅ FIXED: no authToken prop */}
-          <SMSButton patient={patient} size="md" />
-        </div>
+        
 
         {/* Payment summary */}
         <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '14px', marginBottom: 20, fontSize: 14 }}>
@@ -758,7 +665,7 @@ function sortQueue(patients) {
 }
 
 // ✅ FIXED: removed authToken prop
-function TodayQueue({ todayQueue, doctors, onUpdateStatus, onUpdateFollowUp }) {
+function TodayQueue({ todayQueue, doctors, onUpdateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile }) {
   const sorted  = sortQueue(todayQueue);
   const waiting = sorted.filter((p) => p.status === 'waiting');
   const called  = sorted.filter((p) => p.status === 'called');
@@ -793,7 +700,7 @@ function TodayQueue({ todayQueue, doctors, onUpdateStatus, onUpdateFollowUp }) {
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               {/* ✅ FIXED: no authToken prop passed to QueueCard */}
-              {activeQ.map((p) => <QueueCard key={p._id} patient={p} onUpdateStatus={onUpdateStatus} onUpdateFollowUp={onUpdateFollowUp} />)}
+              {activeQ.map((p) => <QueueCard key={p._id} patient={p} onUpdateStatus={onUpdateStatus} onUpdateFollowUp={onUpdateFollowUp} onUploadFile={onUploadFile} onGetFiles={onGetFiles} onDownloadFile={onDownloadFile} onDeleteFile={onDeleteFile} />)}
               {activeQ.length > 0 && doneQ.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0' }}>
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
@@ -801,7 +708,7 @@ function TodayQueue({ todayQueue, doctors, onUpdateStatus, onUpdateFollowUp }) {
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 </div>
               )}
-              {doneQ.map((p) => <QueueCard key={p._id} patient={p} onUpdateStatus={onUpdateStatus} onUpdateFollowUp={onUpdateFollowUp} />)}
+              {doneQ.map((p) => <QueueCard key={p._id} patient={p} onUpdateStatus={onUpdateStatus} onUpdateFollowUp={onUpdateFollowUp} onUploadFile={onUploadFile} onGetFiles={onGetFiles} onDownloadFile={onDownloadFile} onDeleteFile={onDeleteFile} />)}
             </div>
           </div>
         );
@@ -813,11 +720,95 @@ function TodayQueue({ todayQueue, doctors, onUpdateStatus, onUpdateFollowUp }) {
 }
 
 /* ── Queue Card — ✅ FIXED: removed authToken prop ─────────────── */
-function QueueCard({ patient: p, onUpdateStatus, onUpdateFollowUp }) {
+function QueueCard({ patient: p, onUpdateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile }) {
   const pid = p._id || p.id;
   const [showFollowUp, setShowFollowUp] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const statusBg = { waiting: 'var(--surface)', called: '#fffbeb', done: 'var(--surface2)' };
   const days = daysUntil(p.followUpDate);
+
+  // Load files when toggling
+  useEffect(() => {
+    if (showFiles && files.length === 0 && !loadingFiles) {
+      loadFiles();
+    }
+  }, [showFiles]);
+
+// Update loadFiles function
+async function loadFiles() {
+  setLoadingFiles(true);
+  try {
+    const result = await onGetFiles(pid);
+    let filesArray = [];
+    
+    if (Array.isArray(result)) {
+      filesArray = result;
+    } else if (result && result.files && Array.isArray(result.files)) {
+      filesArray = result.files;
+    }
+    
+    setFiles(filesArray);
+  } catch (err) {
+    console.error('Failed to load files:', err);
+    setFiles([]);
+  } finally {
+    setLoadingFiles(false);
+  }
+}
+
+// Update handleUploadFile function
+async function handleUploadFile(patientId, file) {
+  try {
+    await onUploadFile(patientId, file);
+    // Reload files after upload
+    setTimeout(async () => {
+      const result = await onGetFiles(pid);
+      let filesArray = [];
+      
+      if (Array.isArray(result)) {
+        filesArray = result;
+      } else if (result && result.files && Array.isArray(result.files)) {
+        filesArray = result.files;
+      }
+      
+      setFiles(filesArray);
+    }, 500);
+  } catch (err) {
+    throw err;
+  }
+}
+
+// Update handleDeleteFile function
+async function handleDeleteFile(patientId, fileId) {
+  try {
+    await onDeleteFile(patientId, fileId);
+    // Reload files after delete
+    const result = await onGetFiles(pid);
+    let filesArray = [];
+    
+    if (Array.isArray(result)) {
+      filesArray = result;
+    } else if (result && result.files && Array.isArray(result.files)) {
+      filesArray = result.files;
+    }
+    
+    setFiles(filesArray);
+  } catch (err) {
+    throw err;
+  }
+}
+// Update handleDownloadFile to use correct ID
+async function handleDownloadFile(pid,fileId) {
+  
+  // Make sure we're not mixing up patientId and fileId
+  if (!fileId || fileId === pid) {
+    console.error('Invalid file ID:', fileId);
+    throw new Error('Invalid file ID');
+  }
+  return onDownloadFile(pid, fileId);
+}
 
   return (
     <div style={{ borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
@@ -839,8 +830,7 @@ function QueueCard({ patient: p, onUpdateStatus, onUpdateFollowUp }) {
 
         {/* ── Action buttons ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
-          {/* ✅ FIXED: SMSButton needs no authToken prop */}
-          <SMSButton patient={p} size="sm" />
+          
 
           {p.dues > 0 && <Badge color="red">Due: Rs.{p.dues}</Badge>}
           <Badge color={p.status === 'called' ? 'yellow' : p.status === 'done' ? 'gray' : 'blue'}>
@@ -852,11 +842,27 @@ function QueueCard({ patient: p, onUpdateStatus, onUpdateFollowUp }) {
             style={{ background: p.followUpDate ? 'rgba(124,58,237,0.10)' : 'none', border: '1px solid #c5d5e8', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 14, color: '#7c3aed' }}>
             📅
           </button>
+          <button onClick={() => setShowFiles((v) => !v)} title="Manage patient files"
+            style={{ background: showFiles ? 'rgba(52,152,219,0.15)' : 'none', border: '1px solid #c5d5e8', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 14, color: showFiles ? '#3498db' : 'var(--text-light)' }}>
+            📎 {files.length > 0 && <span style={{ fontSize: 11, fontWeight: 700 }}>({files.length})</span>}
+          </button>
         </div>
       </div>
 
       {showFollowUp && (
         <FollowUpInlineEditor patient={p} onSave={async (date, note) => { await onUpdateFollowUp(pid, date, note); setShowFollowUp(false); }} onCancel={() => setShowFollowUp(false)} />
+      )}
+      {showFiles && (
+        <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'rgba(52,152,219,0.02)' }}>
+          <FileUploadSection
+  patientId={pid}
+  files={files}
+  onUpload={handleUploadFile}
+  onDelete={handleDeleteFile}
+  onDownload={handleDownloadFile}
+  disabled={loadingFiles}
+/>
+        </div>
       )}
     </div>
   );

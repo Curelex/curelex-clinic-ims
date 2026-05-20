@@ -28,11 +28,13 @@ import userRoutes from './routes/users.js';
 import patientRoutes from './routes/patients.js';
 import superadminRoutes from './routes/superadmin.js';
 import queueRoutes from './routes/queue.js';
+import fileRoutes from './routes/files.js';
 
 app.use('/auth', authRoutes);
 app.use('/clinics', clinicRoutes);
 app.use('/users', userRoutes);
 app.use('/patients', patientRoutes);
+app.use('/patients', fileRoutes);  // File routes mounted on patients path
 app.use('/superadmin', superadminRoutes);
 app.use('/queue', queueRoutes);
 

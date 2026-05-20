@@ -3,6 +3,7 @@ import {
   DashboardLayout, Card, Stat, Btn, Badge,
   SectionHeader, Empty, TokenBadge, Alert,
 } from '../components/UI';
+import { FileUploadSection } from '../components/FileUpload';
 import { today } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 
@@ -52,6 +53,10 @@ export default function DoctorDashboard() {
     getPatients,
     updatePatientStatus,
     updateFollowUp,
+    uploadPatientFile,
+    getPatientFiles,
+    downloadPatientFile,
+    deletePatientFile,
   } = useApp();
 
   const [tab,      setTab]     = useState('queue');
@@ -176,6 +181,10 @@ const allMyPatients = patients;
             dailyTokenLimit={dailyTokenLimit}
             updateStatus={handleUpdateStatus}
             onUpdateFollowUp={handleUpdateFollowUp}
+            onUploadFile={uploadPatientFile}
+            onGetFiles={getPatientFiles}
+            onDownloadFile={downloadPatientFile}
+            onDeleteFile={deletePatientFile}
           />
         )}
         {tab === 'stats' && (
@@ -201,7 +210,7 @@ const allMyPatients = patients;
 }
 
 /* ── Queue Tab ────────────────────────────────────────────────── */
-function QueueTab({ myPatients, waiting, called, done, currentPatient, dailyTokenLimit, updateStatus, onUpdateFollowUp }) {
+function QueueTab({ myPatients, waiting, called, done, currentPatient, dailyTokenLimit, updateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile }) {
   const limit = dailyTokenLimit;
   return (
     <div>
@@ -248,6 +257,10 @@ function QueueTab({ myPatients, waiting, called, done, currentPatient, dailyToke
                 isLast={i === myPatients.length - 1}
                 onUpdateStatus={updateStatus}
                 onUpdateFollowUp={onUpdateFollowUp}
+                onUploadFile={onUploadFile}
+                onGetFiles={onGetFiles}
+                onDownloadFile={onDownloadFile}
+                onDeleteFile={onDeleteFile}
               />
             ))}
           </div>
@@ -301,11 +314,93 @@ function CurrentPatientCard({ patient: p, onUpdateStatus }) {
 }
 
 /* ── Token Row ────────────────────────────────────────────────── */
-function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp }) {
+function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile }) {
   const pid = p._id || p.id;
   const [showFollowUp, setShowFollowUp] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const bgMap = { waiting: 'var(--surface)', called: '#fefce8', done: 'var(--surface2)' };
   const days = daysUntil(p.followUpDate);
+
+  // Load files when toggling
+  useEffect(() => {
+    if (showFiles && files.length === 0 && !loadingFiles) {
+      loadFiles();
+    }
+  }, [showFiles]);
+
+ // Update loadFiles function
+async function loadFiles() {
+  setLoadingFiles(true);
+  try {
+    const result = await onGetFiles(pid);
+    let filesArray = [];
+    
+    if (Array.isArray(result)) {
+      filesArray = result;
+    } else if (result && result.files && Array.isArray(result.files)) {
+      filesArray = result.files;
+    }
+    
+    setFiles(filesArray);
+  } catch (err) {
+    console.error('Failed to load files:', err);
+    setFiles([]);
+  } finally {
+    setLoadingFiles(false);
+  }
+}
+
+// Update handleUploadFile function
+async function handleUploadFile(patientId, file) {
+  try {
+    await onUploadFile(patientId, file);
+    // Reload files after upload
+    setTimeout(async () => {
+      const result = await onGetFiles(pid);
+      let filesArray = [];
+      
+      if (Array.isArray(result)) {
+        filesArray = result;
+      } else if (result && result.files && Array.isArray(result.files)) {
+        filesArray = result.files;
+      }
+      
+      setFiles(filesArray);
+    }, 500);
+  } catch (err) {
+    throw err;
+  }
+}
+
+// Update handleDeleteFile function
+async function handleDeleteFile(patientId, fileId) {
+  try {
+    await onDeleteFile(patientId, fileId);
+    // Reload files after delete
+    const result = await onGetFiles(pid);
+    let filesArray = [];
+    
+    if (Array.isArray(result)) {
+      filesArray = result;
+    } else if (result && result.files && Array.isArray(result.files)) {
+      filesArray = result.files;
+    }
+    
+    setFiles(filesArray);
+  } catch (err) {
+    throw err;
+  }
+}
+const handleDownloadFile = useCallback(async (pid,fileId) => {
+  
+  if (!fileId || fileId === pid) {
+    console.error('Invalid file ID:', fileId);
+    throw new Error('Invalid file ID');
+  }
+  return onDownloadFile(pid, fileId);
+}, [pid, onDownloadFile]);
 
   return (
     <div style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
@@ -336,6 +431,11 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp }) {
             title="Set follow-up date"
             style={{ background: p.followUpDate ? 'rgba(124,58,237,0.10)' : 'none', border: '1px solid #c5d5e8', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 14, color: '#7c3aed' }}
           >📅</button>
+          <button
+            onClick={() => setShowFiles((v) => !v)}
+            title="Manage patient files"
+            style={{ background: showFiles ? 'rgba(52,152,219,0.15)' : 'none', border: '1px solid #c5d5e8', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', fontSize: 14, color: showFiles ? '#3498db' : 'var(--text-light)' }}
+          >📎 {files.length > 0 && <span style={{ fontSize: 11, fontWeight: 700 }}>({files.length})</span>}</button>
         </div>
       </div>
       {showFollowUp && (
@@ -344,6 +444,18 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp }) {
           onSave={async (date, note) => { await onUpdateFollowUp(pid, date, note); setShowFollowUp(false); }}
           onCancel={() => setShowFollowUp(false)}
         />
+      )}
+      {showFiles && (
+        <div style={{ padding: '14px 18px', borderTop: '1px solid var(--border)', background: 'rgba(52,152,219,0.02)' }}>
+          <FileUploadSection
+  patientId={pid}
+  files={files}
+  onUpload={handleUploadFile}
+  onDelete={handleDeleteFile}
+  onDownload={handleDownloadFile}
+  disabled={loadingFiles}
+/>
+        </div>
       )}
     </div>
   );

@@ -232,8 +232,8 @@ const printSummary = async () => {
       AuditLog.countDocuments({})
     ]);
 
-  console.log("Seed and simulation completed");
-  console.log({ users, products, inventory, customers, suppliers, purchases, sales, stockMovements, auditLogs });
+  
+ 
 };
 
 const run = async () => {

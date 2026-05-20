@@ -26,6 +26,17 @@ const PatientSchema = new mongoose.Schema({
   // ── Follow-up ─────────────────────────────────────────────────
   followUpDate: { type: String, default: '' },  // "YYYY-MM-DD"
   followUpNote: { type: String, default: '' },  // optional note
+
+  // ── File Uploads (images & PDFs only) ──────────────────────────
+  files: [{
+    _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+    filename: { type: String, required: true },
+    mimeType: { type: String, required: true },  // 'image/jpeg', 'image/png', 'application/pdf', etc.
+    size: { type: Number, required: true },      // in bytes
+    uploadedBy: { type: String, required: true }, // 'doctor' or 'receptionist'
+    data: { type: Buffer, required: true },      // binary file data
+    uploadedAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 const Patient = mongoose.model('Patient', PatientSchema);

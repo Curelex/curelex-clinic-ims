@@ -1,10 +1,9 @@
 // ── Curelex API Service (Merged Version) ─────────────────────────────────────
-// Updated to use merged backend endpoint with /clinic prefix
 const BASE = import.meta.env.VITE_CLINIC_API_URL
   ? `${import.meta.env.VITE_CLINIC_API_URL}`
   : '/api/clinic';
 
-// ── Token / Session helpers (using clinic_ prefix to avoid conflict with IMS) ──
+// ── Token / Session helpers ──────────────────────────────────────────────────
 export function getToken()      { return localStorage.getItem('clinic_token'); }
 export function setToken(t)     { localStorage.setItem('clinic_token', t); }
 export function removeToken()   { localStorage.removeItem('clinic_token'); }
@@ -80,19 +79,16 @@ export async function apiLogin(role, email, password) {
     clinicId,
     user:     data.clinic || data.user || null,
     token:    data.token,
-    email,                    // ← FIX: email store karo session mein
-    password,                 // ← FIX: password store karo session mein (IMS auto-login ke liye)
+    email,
+    password,
     name:     data.clinic?.name || data.user?.name || data.user?.fullName || email,
   });
 
-  // ── FIX: Agar pharmacist hai toh IMS login silently kar lo abhi hi ────────
   if (data.role === 'pharmacist') {
     try {
       const { loginPharmacistIntoIMS } = await import('./imsAuthBridge');
       await loginPharmacistIntoIMS({ email, password });
-      // Token store ho gaya — PharmacistDashboard seedha redirect karega
     } catch (e) {
-      // Non-fatal — PharmacistDashboard pe retry hoga
       console.warn('IMS pre-login failed:', e.message);
     }
   }
@@ -103,7 +99,6 @@ export async function apiLogin(role, email, password) {
 export function apiLogout() {
   removeToken();
   removeSession();
-  // IMS token bhi clear karo logout par
   localStorage.removeItem('ims_token');
 }
 
@@ -199,6 +194,63 @@ export async function apiUpdateFollowUp(patientId, followUpDate, followUpNote) {
   });
 }
 
+// ── Patient Files (FIXED) ─────────────────────────────────────────────────────
+export async function apiUploadPatientFile(patientId, file) {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${BASE}/patients/${patientId}/files`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Upload failed');
+  return data;
+}
+
+export async function apiGetPatientFiles(patientId) {
+  const response = await request(`/patients/${patientId}/files`);
+  // Extract the files array from the response
+  if (response && response.files && Array.isArray(response.files)) {
+    return response.files;
+  }
+  if (Array.isArray(response)) {
+    return response;
+  }
+  return [];
+}
+
+export async function apiDownloadPatientFile(patientId, fileId) {
+  const token = getToken();
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  // Validate inputs
+  if (!patientId || !fileId) {
+    throw new Error(`Missing required parameters: patientId=${patientId}, fileId=${fileId}`);
+  }
+
+  const res = await fetch(`${BASE}/patients/${patientId}/files/${fileId}`, {
+    headers,
+    method: 'GET'
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || `Download failed with status ${res.status}`);
+  }
+  return res;
+}
+
+export async function apiDeletePatientFile(patientId, fileId) {
+  return request(`/patients/${patientId}/files/${fileId}`, { method: 'DELETE' });
+}
+
 // ── Super Admin ───────────────────────────────────────────────────────────────
 export async function apiSuperGetClinics() {
   return request('/superadmin/clinics');
@@ -216,14 +268,6 @@ export async function apiSuperSetPlan(clinicId, plan) {
   return request(`/superadmin/clinics/${clinicId}/plan`, {
     method: 'PATCH',
     body: JSON.stringify({ plan }),
-  });
-}
-
-// ── Queue / SMS ───────────────────────────────────────────────────────────────
-export async function apiSendTokenSMS(patientId) {
-  return request('/queue/send-sms', {
-    method: 'POST',
-    body: JSON.stringify({ patientId }),
   });
 }
 

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-// One session is created per patient token when SMS is sent
+// Stores queue tracking sessions for patients
 const QueueSessionSchema = new mongoose.Schema({
   // Link to patient record
   patientId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
@@ -19,9 +19,7 @@ const QueueSessionSchema = new mongoose.Schema({
   // e.g. https://yourapp.com/track/abc123xyz
   sessionToken: { type: String, required: true, unique: true },
 
-  // Whether SMS was sent
-  smsSent:  { type: Boolean, default: false },
-  smsError: { type: String,  default: '' },
+  
 
   // Expires 24 hours after creation
   expiresAt: { type: Date, default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) },

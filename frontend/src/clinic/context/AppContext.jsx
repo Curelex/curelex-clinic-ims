@@ -14,6 +14,10 @@ import {
   apiUpdateFollowUp,
   apiUpdateTokenLimit,
   apiGetMe,
+  apiUploadPatientFile,
+  apiGetPatientFiles,
+  apiDownloadPatientFile,
+  apiDeletePatientFile,
 } from '../utils/api';
 
 const AppContext = createContext(null);
@@ -58,6 +62,27 @@ export function AppProvider({ children }) {
     []
   );
 
+  // ── Patient Files (FIXED) ───────────────────────────────────────
+  const uploadPatientFile = useCallback(
+    (patientId, file) => apiUploadPatientFile(patientId, file),
+    []
+  );
+  
+  const getPatientFiles = useCallback(
+    (patientId) => apiGetPatientFiles(patientId),
+    []
+  );
+  
+  const downloadPatientFile = useCallback(
+    (patientId, fileId) => apiDownloadPatientFile(patientId, fileId),
+    []
+  );
+  
+  const deletePatientFile = useCallback(
+    (patientId, fileId) => apiDeletePatientFile(patientId, fileId),
+    []
+  );
+
   return (
     <AppContext.Provider value={{
       session, login, logout,
@@ -65,6 +90,7 @@ export function AppProvider({ children }) {
       getUsers, addUser, deleteUser, getMe,
       updateTokenLimit,
       getPatients, addPatient, updatePatientStatus, updateFollowUp,
+      uploadPatientFile, getPatientFiles, downloadPatientFile, deletePatientFile,
     }}>
       {children}
     </AppContext.Provider>
