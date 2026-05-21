@@ -5,8 +5,9 @@ import {
 } from '../components/UI';
 import { today } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
-// ── at the top of AdminDashboard.jsx, add this import ──
 import { registerPharmacistInIMS } from '../utils/imsAuthBridge';
+
+const IMS_BASE = import.meta.env.VITE_IMS_API_URL || 'http://localhost:5000/ims/api/v1';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -330,7 +331,6 @@ export default function AdminDashboard({ onChoosePlan }) {
 
   const followUpPatients = patients.filter((p) => p.followUpDate && p.followUpDate >= todayStr);
 
-  // ── Nav items — Pharmacists is now between Settings and Logout ──
   const navItems = [
     { icon:'📊', label:'Overview',      active: tab==='overview',      onClick:()=>setTab('overview') },
     { icon:'👨‍⚕️', label:'Doctors',       active: tab==='doctors',       onClick:()=>setTab('doctors'),       badge: doctors.length || undefined },
@@ -339,6 +339,7 @@ export default function AdminDashboard({ onChoosePlan }) {
     { icon:'📅', label:'Follow-ups',    active: tab==='followups',     onClick:()=>setTab('followups'),     badge: followUpPatients.length || undefined },
     { icon:'⚙️', label:'Settings',      active: tab==='settings',      onClick:()=>setTab('settings') },
     { icon:'💊', label:'Pharmacists',   active: tab==='pharmacists',   onClick:()=>setTab('pharmacists'),   badge: pharmacists.length || undefined },
+    { icon:'💰', label:'Revenue',       active: tab==='revenue',       onClick:()=>setTab('revenue') },
   ];
 
   return (
@@ -361,6 +362,7 @@ export default function AdminDashboard({ onChoosePlan }) {
           {tab === 'followups'     && <AdminFollowUps patients={patients} doctors={doctors} onUpdateFollowUp={handleUpdateFollowUp} />}
           {tab === 'settings'      && <ClinicSettings clinic={clinic} onSave={handleSaveClinic} />}
           {tab === 'pharmacists'   && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} />}
+          {tab === 'revenue'       && <RevenueSection patients={patients} doctors={doctors} pharmacists={pharmacists} session={session} />}
         </DashboardLayout>
       </div>
       {!active && <PlanGateOverlay clinicName={clinic.name} onChoosePlan={onChoosePlan} />}
@@ -454,6 +456,386 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
         )}
       </Card>
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ── REVENUE SECTION ──────────────────────────────────────────────
+   ══════════════════════════════════════════════════════════════════ */
+function RevenueSection({ patients, doctors, pharmacists, session }) {
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // ── Date range state — default to today ──
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate,   setToDate]   = useState(todayStr);
+  const [doctorFilter, setDoctorFilter] = useState('all');
+
+  // ── IMS pharmacist revenue state ──
+  const [imsData,    setImsData]    = useState(null);
+  const [imsLoading, setImsLoading] = useState(false);
+  const [imsError,   setImsError]   = useState('');
+
+  // ── Fetch IMS sales data when dates change ──
+  useEffect(() => {
+    fetchImsRevenue();
+  }, [fromDate, toDate]);
+
+  async function fetchImsRevenue() {
+    setImsLoading(true);
+    setImsError('');
+    setImsData(null);
+    try {
+      // Use admin JWT token from session for IMS auth
+      const token = session?.token || localStorage.getItem('token') || '';
+      const url = `${IMS_BASE}/reports/revenue?from=${fromDate}&to=${toDate}`;
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `IMS API error: ${res.status}`);
+      }
+      const data = await res.json();
+      setImsData(data);
+    } catch (e) {
+      setImsError(e.message);
+    } finally {
+      setImsLoading(false);
+    }
+  }
+
+  // ── Filter patients by date range ──
+  function inRange(dateStr) {
+    if (!dateStr) return false;
+    return dateStr >= fromDate && dateStr <= toDate;
+  }
+
+  const filteredPatients = patients.filter(p => inRange(p.date));
+
+  // ── Per-doctor stats ──
+  const allDoctorStats = doctors.map(doc => {
+    const docPats   = filteredPatients.filter(p => String(p.doctorId) === String(doc._id));
+    const totalPaid = docPats.reduce((s, p) => s + (p.paid || 0), 0);
+    const totalDues = docPats.reduce((s, p) => s + (p.dues || 0), 0);
+    const upiPaid   = docPats.filter(p => p.paymentMethod === 'upi').reduce((s, p) => s + (p.paid || 0), 0);
+    const cashPaid  = docPats.filter(p => p.paymentMethod !== 'upi').reduce((s, p) => s + (p.paid || 0), 0);
+    const upiCount  = docPats.filter(p => p.paymentMethod === 'upi').length;
+    const cashCount = docPats.filter(p => p.paymentMethod !== 'upi').length;
+    return { ...doc, docPats, totalPaid, totalDues, upiPaid, cashPaid, upiCount, cashCount, totalPatients: docPats.length };
+  });
+
+  const visibleDoctorStats = doctorFilter === 'all'
+    ? allDoctorStats
+    : allDoctorStats.filter(d => String(d._id) === doctorFilter);
+
+  // ── Grand totals (all doctors, no filter) ──
+  const grandPaid    = allDoctorStats.reduce((s, d) => s + d.totalPaid, 0);
+  const grandDues    = allDoctorStats.reduce((s, d) => s + d.totalDues, 0);
+  const grandPats    = allDoctorStats.reduce((s, d) => s + d.totalPatients, 0);
+  const grandUpi     = allDoctorStats.reduce((s, d) => s + d.upiPaid, 0);
+  const grandCash    = allDoctorStats.reduce((s, d) => s + d.cashPaid, 0);
+
+  // ── IMS totals ──
+  const imsTotalSales   = imsData?.totalSales   ?? imsData?.total        ?? imsData?.revenue    ?? 0;
+  const imsTotalProfit  = imsData?.totalProfit  ?? imsData?.profit       ?? 0;
+  const imsTotalOrders  = imsData?.totalOrders  ?? imsData?.count        ?? imsData?.invoices   ?? 0;
+
+  // ── Shared input style ──
+  const dateInput = {
+    padding: '9px 12px', borderRadius: 9, border: '1.5px solid #d0dce8',
+    fontSize: 13, fontFamily: 'inherit', color: '#0a3d62', background: '#fff',
+    outline: 'none', cursor: 'pointer',
+  };
+
+  const sectionHead = {
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '12px 18px', borderRadius: 12, marginBottom: 16,
+    fontWeight: 700, fontSize: 15,
+  };
+
+  return (
+    <div>
+      <SectionHeader title="Revenue" subtitle="Track income and outstanding dues across the clinic" />
+
+      {/* ── Date Range Picker ── */}
+      <Card style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#4a6278', whiteSpace: 'nowrap' }}>📅 Date Range:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <input type="date" value={fromDate} max={toDate} onChange={e => setFromDate(e.target.value)} style={dateInput} />
+            <span style={{ fontSize: 13, color: '#8fa8bc', fontWeight: 500 }}>to</span>
+            <input type="date" value={toDate}   min={fromDate} onChange={e => setToDate(e.target.value)}   style={dateInput} />
+          </div>
+          {/* Quick presets */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
+            {[
+              { label: 'Today',   from: todayStr, to: todayStr },
+              { label: 'This Week', from: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1); return d.toISOString().split('T')[0]; })(), to: todayStr },
+              { label: 'This Month', from: todayStr.slice(0,7) + '-01', to: todayStr },
+              { label: 'Last 30 Days', from: (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().split('T')[0]; })(), to: todayStr },
+            ].map(({ label, from, to }) => (
+              <button key={label} onClick={() => { setFromDate(from); setToDate(to); }}
+                style={{
+                  padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  background: fromDate === from && toDate === to ? '#0a3d62' : '#fff',
+                  color:      fromDate === from && toDate === to ? '#fff'    : '#0a3d62',
+                  border:     fromDate === from && toDate === to ? '1.5px solid #0a3d62' : '1.5px solid #d0dce8',
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* ══════════════════════════════════════════════════════
+          SECTION 1 — DOCTOR REVENUE
+      ══════════════════════════════════════════════════════ */}
+      <div style={{ marginBottom: 36 }}>
+        <div style={{ ...sectionHead, background: 'linear-gradient(135deg, rgba(10,61,98,0.07) 0%, rgba(21,101,168,0.10) 100%)', border: '1.5px solid rgba(21,101,168,0.18)' }}>
+          <span style={{ fontSize: 20 }}>👨‍⚕️</span>
+          <span style={{ color: '#0a3d62' }}>Doctor Revenue</span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#4a6278', fontWeight: 400 }}>
+            {fromDate === toDate ? fromDate : `${fromDate} → ${toDate}`}
+          </span>
+        </div>
+
+        {/* Grand total summary cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+          {[
+            { label: 'Total Collected',  value: `Rs. ${grandPaid.toLocaleString()}`,  icon: '💰', color: '#00a878', bg: 'rgba(0,184,148,0.08)',  border: 'rgba(0,184,148,0.20)'  },
+            { label: 'Total Dues',       value: `Rs. ${grandDues.toLocaleString()}`,  icon: '⚠️', color: '#e74c3c', bg: 'rgba(231,76,60,0.08)',  border: 'rgba(231,76,60,0.20)'  },
+            { label: 'Total Patients',   value: grandPats,                             icon: '👥', color: '#1565a8', bg: 'rgba(21,101,168,0.08)', border: 'rgba(21,101,168,0.20)' },
+            { label: 'UPI Collected',    value: `Rs. ${grandUpi.toLocaleString()}`,   icon: '📲', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.20)' },
+            { label: 'Cash Collected',   value: `Rs. ${grandCash.toLocaleString()}`,  icon: '💵', color: '#d68910', bg: 'rgba(214,137,16,0.08)', border: 'rgba(214,137,16,0.20)' },
+          ].map(({ label, value, icon, color, bg, border }) => (
+            <div key={label} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color, lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: 11.5, color: '#8fa8bc', marginTop: 4 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Per-doctor filter */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#4a6278' }}>Filter by doctor:</span>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button onClick={() => setDoctorFilter('all')}
+              style={{ padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: doctorFilter === 'all' ? '#0a3d62' : '#fff', color: doctorFilter === 'all' ? '#fff' : '#0a3d62', border: doctorFilter === 'all' ? '1.5px solid #0a3d62' : '1.5px solid #d0dce8' }}>
+              All Doctors
+            </button>
+            {doctors.map(doc => (
+              <button key={doc._id} onClick={() => setDoctorFilter(String(doc._id))}
+                style={{ padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: doctorFilter === String(doc._id) ? '#0a3d62' : '#fff', color: doctorFilter === String(doc._id) ? '#fff' : '#0a3d62', border: doctorFilter === String(doc._id) ? '1.5px solid #0a3d62' : '1.5px solid #d0dce8' }}>
+                {doc.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Per-doctor breakdown table */}
+        {visibleDoctorStats.length === 0 ? (
+          <Empty icon="👨‍⚕️" title="No doctors found" desc="No doctors match the current filter." />
+        ) : (
+          <Card noPad>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)' }}>
+                    {['Doctor','Specialist','Patients','Total Collected','Pending Dues','UPI Amount','Cash Amount','UPI Txns','Cash Txns'].map(h => (
+                      <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleDoctorStats.map((doc, i) => (
+                    <tr key={doc._id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? '#fff' : 'var(--surface2, #fafbfc)' }}>
+                      <td style={{ padding: '12px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>👨‍⚕️</div>
+                          <span style={{ fontWeight: 700, color: '#0a3d62' }}>{doc.name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <Badge color="blue">{doc.specialist || '—'}</Badge>
+                      </td>
+                      <td style={{ padding: '12px 14px', fontWeight: 700, color: '#1565a8', textAlign: 'center' }}>
+                        {doc.totalPatients}
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ fontWeight: 800, color: '#00a878', fontSize: 14 }}>Rs. {doc.totalPaid.toLocaleString()}</span>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ fontWeight: doc.totalDues > 0 ? 800 : 400, color: doc.totalDues > 0 ? '#e74c3c' : '#8fa8bc', fontSize: doc.totalDues > 0 ? 14 : 13 }}>
+                          {doc.totalDues > 0 ? `Rs. ${doc.totalDues.toLocaleString()}` : '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ fontWeight: 700, color: '#7c3aed' }}>
+                          {doc.upiPaid > 0 ? `Rs. ${doc.upiPaid.toLocaleString()}` : '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ fontWeight: 700, color: '#d68910' }}>
+                          {doc.cashPaid > 0 ? `Rs. ${doc.cashPaid.toLocaleString()}` : '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                        {doc.upiCount > 0
+                          ? <span style={{ background: 'rgba(124,58,237,0.10)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>📲 {doc.upiCount}</span>
+                          : <span style={{ color: '#b0bec5' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                        {doc.cashCount > 0
+                          ? <span style={{ background: 'rgba(0,184,148,0.10)', color: '#00a878', border: '1px solid rgba(0,184,148,0.25)', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>💵 {doc.cashCount}</span>
+                          : <span style={{ color: '#b0bec5' }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {/* Totals row */}
+                {doctorFilter === 'all' && visibleDoctorStats.length > 1 && (
+                  <tfoot>
+                    <tr style={{ background: 'linear-gradient(135deg, rgba(10,61,98,0.06), rgba(21,101,168,0.08))', borderTop: '2px solid rgba(21,101,168,0.20)' }}>
+                      <td colSpan={2} style={{ padding: '12px 14px', fontWeight: 800, color: '#0a3d62', fontSize: 13 }}>📊 Grand Total</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 800, color: '#1565a8', textAlign: 'center' }}>{grandPats}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 800, color: '#00a878', fontSize: 14 }}>Rs. {grandPaid.toLocaleString()}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 800, color: grandDues > 0 ? '#e74c3c' : '#8fa8bc', fontSize: 14 }}>{grandDues > 0 ? `Rs. ${grandDues.toLocaleString()}` : '—'}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 800, color: '#7c3aed' }}>{grandUpi > 0 ? `Rs. ${grandUpi.toLocaleString()}` : '—'}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 800, color: '#d68910' }}>{grandCash > 0 ? `Rs. ${grandCash.toLocaleString()}` : '—'}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </Card>
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════
+          SECTION 2 — PHARMACIST / IMS REVENUE
+      ══════════════════════════════════════════════════════ */}
+      <div>
+        <div style={{ ...sectionHead, background: 'linear-gradient(135deg, rgba(0,184,148,0.07) 0%, rgba(0,184,148,0.12) 100%)', border: '1.5px solid rgba(0,184,148,0.22)' }}>
+          <span style={{ fontSize: 20 }}>💊</span>
+          <span style={{ color: '#00796b' }}>Pharmacy Revenue</span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#4a6278', fontWeight: 400 }}>
+            from Inventory Management System
+          </span>
+        </div>
+
+        {/* IMS summary cards */}
+        {imsLoading && (
+          <Card style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>⏳</div>
+            <div style={{ fontSize: 14 }}>Fetching pharmacy revenue from IMS…</div>
+          </Card>
+        )}
+
+        {imsError && !imsLoading && (
+          <div style={{ marginBottom: 16 }}>
+            <Alert type="error">
+              ⚠️ Could not load IMS data: {imsError}
+              <button onClick={fetchImsRevenue} style={{ marginLeft: 12, padding: '3px 12px', borderRadius: 7, border: '1px solid rgba(192,57,43,0.3)', background: '#fff', color: '#c0392b', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Retry
+              </button>
+            </Alert>
+            {/* Pharmacist list still shown even on error */}
+            <div style={{ marginTop: 16 }}>
+              <PharmacistRevenueList pharmacists={pharmacists} />
+            </div>
+          </div>
+        )}
+
+        {imsData && !imsLoading && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+              {[
+                { label: 'Total Sales',   value: `Rs. ${Number(imsTotalSales).toLocaleString()}`,  icon: '💊', color: '#00a878', bg: 'rgba(0,184,148,0.08)',  border: 'rgba(0,184,148,0.20)'  },
+                { label: 'Total Profit',  value: `Rs. ${Number(imsTotalProfit).toLocaleString()}`, icon: '📈', color: '#1565a8', bg: 'rgba(21,101,168,0.08)', border: 'rgba(21,101,168,0.20)' },
+                { label: 'Total Orders',  value: Number(imsTotalOrders),                           icon: '🧾', color: '#d68910', bg: 'rgba(214,137,16,0.08)', border: 'rgba(214,137,16,0.20)' },
+              ].map(({ label, value, icon, color, bg, border }) => (
+                <div key={label} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
+                  <div style={{ fontWeight: 800, fontSize: 18, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontSize: 11.5, color: '#8fa8bc', marginTop: 4 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Per-pharmacist breakdown from IMS if available */}
+            {imsData.pharmacists && imsData.pharmacists.length > 0 && (
+              <Card noPad style={{ marginBottom: 16 }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 14, color: '#0a3d62' }}>Per-Pharmacist Breakdown</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface2)' }}>
+                        {['Pharmacist','Sales Amount','Orders','Profit'].map(h => (
+                          <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {imsData.pharmacists.map((ph, i) => (
+                        <tr key={ph._id || i} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? '#fff' : 'var(--surface2)' }}>
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(0,184,148,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>💊</div>
+                              <span style={{ fontWeight: 600 }}>{ph.name || ph.pharmacistName || '—'}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '10px 14px', fontWeight: 700, color: '#00a878' }}>Rs. {Number(ph.sales || ph.totalSales || 0).toLocaleString()}</td>
+                          <td style={{ padding: '10px 14px', color: '#1565a8', fontWeight: 600 }}>{ph.orders || ph.totalOrders || '—'}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: 700, color: '#1565a8' }}>{ph.profit ? `Rs. ${Number(ph.profit).toLocaleString()}` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+
+            <PharmacistRevenueList pharmacists={pharmacists} />
+          </>
+        )}
+
+        {/* If no IMS data yet and no error — show pharmacist list with IMS link */}
+        {!imsData && !imsLoading && !imsError && (
+          <PharmacistRevenueList pharmacists={pharmacists} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── PharmacistRevenueList — always show registered pharmacists ── */
+function PharmacistRevenueList({ pharmacists }) {
+  if (pharmacists.length === 0) return null;
+  return (
+    <Card>
+      <div style={{ fontWeight: 700, fontSize: 14, color: '#0a3d62', marginBottom: 12 }}>💊 Registered Pharmacists</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+        {pharmacists.map(ph => (
+          <div key={ph._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(0,184,148,0.05)', border: '1px solid rgba(0,184,148,0.18)', borderRadius: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(0,184,148,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>💊</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0a3d62', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ph.name}</div>
+              <div style={{ fontSize: 11, color: '#8fa8bc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ph.email}</div>
+            </div>
+            <a href="/ims" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+              style={{ fontSize: 11, color: '#1565a8', fontWeight: 700, textDecoration: 'none', background: 'rgba(21,101,168,0.07)', border: '1px solid rgba(21,101,168,0.2)', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              IMS ↗
+            </a>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -610,9 +992,6 @@ function DoctorDetailModal({ doc, patients, onClose, onUpdateTokenLimit }) {
   const done     = todayDocPat.filter((p) => p.status === 'done').length;
   const revenue  = todayDocPat.reduce((s, p) => s + (p.paid || 0), 0);
   const dues     = todayDocPat.reduce((s, p) => s + (p.dues || 0), 0);
-  const totalRev = allDocPat.reduce((s, p) => s + (p.paid || 0), 0);
-  const totalDue = allDocPat.reduce((s, p) => s + (p.dues || 0), 0);
-  const limit    = doc.dailyTokenLimit ?? 0;
 
   return (
     <Modal title="" onClose={onClose}>
@@ -736,7 +1115,6 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
 /* ── DoctorCard ─────────────────────────────────────────────────── */
 function DoctorCard({ doc, onRemove, onClick, onUpdateTokenLimit }) {
   const [hovered, setHovered] = useState(false);
-  const limit = doc.dailyTokenLimit ?? 0;
   return (
     <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
@@ -830,9 +1208,7 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   ── PHARMACIST MANAGEMENT (NEW) ──────────────────────────────────
-   ══════════════════════════════════════════════════════════════════ */
+/* ── Pharmacist Management ───────────────────────────────────────── */
 function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
   const [show, setShow] = useState(false);
   const [err,  setErr]  = useState('');
@@ -840,25 +1216,17 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
   const [form, setForm] = useState({ name:'', email:'', phone:'', password:'' });
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
- async function addPharmacist() {
-  if (!form.name || !form.email || !form.password) { setErr('Fill all required fields.'); return; }
-  setBusy(true); setErr('');
-  try {
-    // 1. Add to clinic
-    await onAdd({ role: 'pharmacist', ...form });
-
-    // 2. Register in IMS so SSO exchange works
-    await registerPharmacistInIMS({
-      fullName: form.name,
-      email:    form.email,
-      password: form.password,
-    });
-
-    setForm({ name:'', email:'', phone:'', password:'' });
-    setShow(false);
-  } catch(e) { setErr(e.message); }
-  finally { setBusy(false); }
-}
+  async function addPharmacist() {
+    if (!form.name || !form.email || !form.password) { setErr('Fill all required fields.'); return; }
+    setBusy(true); setErr('');
+    try {
+      await onAdd({ role: 'pharmacist', ...form });
+      await registerPharmacistInIMS({ fullName: form.name, email: form.email, password: form.password });
+      setForm({ name:'', email:'', phone:'', password:'' });
+      setShow(false);
+    } catch(e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
 
   async function removePharmacist(id) {
     if (!window.confirm('Remove this pharmacist?')) return;
@@ -872,115 +1240,46 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
         subtitle={`${pharmacists.length} pharmacist${pharmacists.length !== 1 ? 's' : ''} registered`}
         action={<Btn onClick={() => setShow(true)}>+ Add Pharmacist</Btn>}
       />
-
-      {/* IMS info banner */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(10,61,98,0.06) 0%, rgba(0,184,148,0.08) 100%)',
-        border: '1.5px solid rgba(0,184,148,0.25)',
-        borderRadius: 14, padding: '16px 20px', marginBottom: 24,
-        display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
-      }}>
+      <div style={{ background: 'linear-gradient(135deg, rgba(10,61,98,0.06) 0%, rgba(0,184,148,0.08) 100%)', border: '1.5px solid rgba(0,184,148,0.25)', borderRadius: 14, padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 36 }}>💊</div>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: '#0a3d62', marginBottom: 4 }}>
-            Pharmacy &amp; Inventory System
-          </div>
-          <div style={{ fontSize: 13, color: '#4a6278', lineHeight: 1.6 }}>
-            Pharmacists log in and are automatically redirected to the Inventory Management System
-            where they can manage medicines, stock, sales, and purchases.
-          </div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: '#0a3d62', marginBottom: 4 }}>Pharmacy &amp; Inventory System</div>
+          <div style={{ fontSize: 13, color: '#4a6278', lineHeight: 1.6 }}>Pharmacists log in and are automatically redirected to the Inventory Management System where they can manage medicines, stock, sales, and purchases.</div>
         </div>
-        <a
-          href="/ims"
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '10px 20px', borderRadius: 10,
-            background: 'linear-gradient(135deg, #0a3d62, #1565a8)',
-            color: '#fff', fontWeight: 700, fontSize: 13,
-            textDecoration: 'none', whiteSpace: 'nowrap',
-            boxShadow: '0 4px 14px rgba(10,61,98,0.25)',
-          }}
-        >
+        <a href="/ims" target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg, #0a3d62, #1565a8)', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap', boxShadow: '0 4px 14px rgba(10,61,98,0.25)' }}>
           📦 Open Inventory System ↗
         </a>
       </div>
-
       {pharmacists.length === 0 ? (
-        <Empty
-          icon="💊"
-          title="No pharmacists yet"
-          desc="Add a pharmacist — they will have access to the Inventory Management System."
-          action={<Btn onClick={() => setShow(true)}>+ Add First Pharmacist</Btn>}
-        />
+        <Empty icon="💊" title="No pharmacists yet" desc="Add a pharmacist — they will have access to the Inventory Management System." action={<Btn onClick={() => setShow(true)}>+ Add First Pharmacist</Btn>} />
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:16 }}>
           {pharmacists.map((ph) => (
             <Card key={ph._id}>
               <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-                <div style={{
-                  width:44, height:44, borderRadius:12,
-                  background: 'linear-gradient(135deg, rgba(0,184,148,0.15), rgba(0,184,148,0.08))',
-                  border: '1.5px solid rgba(0,184,148,0.25)',
-                  display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0,
-                }}>💊</div>
+                <div style={{ width:44, height:44, borderRadius:12, background: 'linear-gradient(135deg, rgba(0,184,148,0.15), rgba(0,184,148,0.08))', border: '1.5px solid rgba(0,184,148,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>💊</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:15 }}>{ph.name}</div>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: 'rgba(0,184,148,0.10)', color: '#00a878',
-                    border: '1px solid rgba(0,184,148,0.25)', borderRadius: 20,
-                    padding: '1px 9px', fontSize: 11, fontWeight: 700, marginTop: 2,
-                  }}>
-                    💊 Pharmacist
-                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(0,184,148,0.10)', color: '#00a878', border: '1px solid rgba(0,184,148,0.25)', borderRadius: 20, padding: '1px 9px', fontSize: 11, fontWeight: 700, marginTop: 2 }}>💊 Pharmacist</span>
                 </div>
-                <button
-                  onClick={() => removePharmacist(ph._id)}
-                  style={{ background:'none', border:'none', cursor:'pointer', color:'var(--danger)', fontSize:16, padding:4, flexShrink:0 }}
-                  title="Remove pharmacist"
-                >🗑</button>
+                <button onClick={() => removePharmacist(ph._id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--danger)', fontSize:16, padding:4, flexShrink:0 }} title="Remove pharmacist">🗑</button>
               </div>
               <div style={{ fontSize:13, display:'grid', gap:5 }}>
                 <div style={{ color:'var(--text-muted)' }}>✉️ {ph.email}</div>
                 {ph.phone && <div style={{ color:'var(--text-muted)' }}>📞 {ph.phone}</div>}
               </div>
-              <div style={{
-                marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                  Added {ph.addedAt}
-                </span>
-                <a
-                  href="/ims"
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    fontSize: 11.5, color: '#1565a8', fontWeight: 700,
-                    textDecoration: 'none',
-                    background: 'rgba(21,101,168,0.07)',
-                    border: '1px solid rgba(21,101,168,0.2)',
-                    borderRadius: 6, padding: '3px 10px',
-                  }}
-                >
-                  📦 Open IMS ↗
-                </a>
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Added {ph.addedAt}</span>
+                <a href="/ims" target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: 11.5, color: '#1565a8', fontWeight: 700, textDecoration: 'none', background: 'rgba(21,101,168,0.07)', border: '1px solid rgba(21,101,168,0.2)', borderRadius: 6, padding: '3px 10px' }}>📦 Open IMS ↗</a>
               </div>
             </Card>
           ))}
         </div>
       )}
-
       {show && (
         <Modal title="Add Pharmacist" onClose={() => { setShow(false); setErr(''); }}>
           <div style={{ display:'grid', gap:14 }}>
-            <div style={{
-              background: 'rgba(0,184,148,0.06)', border: '1px solid rgba(0,184,148,0.2)',
-              borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#4a6278',
-            }}>
+            <div style={{ background: 'rgba(0,184,148,0.06)', border: '1px solid rgba(0,184,148,0.2)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#4a6278' }}>
               💡 Pharmacists will be able to log in and access the <strong>Inventory Management System</strong> to manage medicines and stock.
             </div>
             <Input label="Full Name *" value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="e.g. Ahmed Pharmacy" />

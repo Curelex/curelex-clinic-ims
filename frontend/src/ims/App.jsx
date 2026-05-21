@@ -12,6 +12,7 @@ import PurchasesPage from "./pages/PurchasesPage";
 import ReportsPage from "./pages/ReportsPage";
 import SalesPage from "./pages/SalesPage";
 import SuppliersPage from "./pages/SuppliersPage";
+import AllPatientsIMS from "./pages/AllPatientsIMS";
 import { Toaster } from "react-hot-toast";
 
 function IMSAppContent() {
@@ -29,14 +30,15 @@ function IMSAppContent() {
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="products" element={<ProductsPage />} />
-          <Route path="inventory" element={<InventoryPage />} />
-          <Route path="sales" element={<SalesPage />} />
-          <Route path="purchases" element={<PurchasesPage />} />
-          <Route path="customers" element={<CustomersPage />} />
-          <Route path="suppliers" element={<SuppliersPage />} />
-          <Route path="reports" element={<ReportsPage />} />
+          <Route path="dashboard"     element={<DashboardPage />} />
+          <Route path="products"      element={<ProductsPage />} />
+          <Route path="inventory"     element={<InventoryPage />} />
+          <Route path="sales"         element={<SalesPage />} />
+          <Route path="purchases"     element={<PurchasesPage />} />
+          <Route path="customers"     element={<CustomersPage />} />
+          <Route path="suppliers"     element={<SuppliersPage />} />
+          <Route path="reports"       element={<ReportsPage />} />
+          <Route path="all-patients"  element={<AllPatientsIMS />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

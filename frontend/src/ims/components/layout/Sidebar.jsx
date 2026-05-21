@@ -2,14 +2,15 @@ import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 
 const navItems = [
-  { to: "dashboard",  label: "Dashboard",  icon: "📊" },
-  { to: "products",   label: "Products",   icon: "📦" },
-  { to: "inventory",  label: "Inventory",  icon: "🗃️" },
-  { to: "sales",      label: "Sales",      icon: "💰" },
-  { to: "purchases",  label: "Purchases",  icon: "🛒" },
-  { to: "customers",  label: "Customers",  icon: "👥" },
-  { to: "suppliers",  label: "Suppliers",  icon: "🏭" },
-  { to: "reports",    label: "Reports",    icon: "📈" },
+  { to: "dashboard",    label: "Dashboard",    icon: "📊" },
+  { to: "products",     label: "Products",     icon: "📦" },
+  { to: "inventory",    label: "Inventory",    icon: "🗃️" },
+  { to: "sales",        label: "Sales",        icon: "💰" },
+  { to: "purchases",    label: "Purchases",    icon: "🛒" },
+  { to: "customers",    label: "Customers",    icon: "👥" },
+  { to: "suppliers",    label: "Suppliers",    icon: "🏭" },
+  { to: "reports",      label: "Reports",      icon: "📈" },
+  { to: "all-patients", label: "All Patients", icon: "🩺" },   // ← NEW
 ];
 
 const Sidebar = ({ isOpen, onClose }) => {
