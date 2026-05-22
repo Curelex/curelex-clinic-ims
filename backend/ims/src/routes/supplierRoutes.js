@@ -6,15 +6,15 @@ import {
   supplierHistory
 } from "../controllers/supplierController.js";
 import { protect } from "../middleware/authMiddleware.js";
-import { authorizeRoles } from "../middleware/authorize.js";
-import { ROLES } from "../utils/permissions.js";
+import { authorizePermissions } from "../middleware/authorize.js";
 
 const router = express.Router();
 
-router.use(protect, authorizeRoles(ROLES.ADMIN));
-router.get("/", listSuppliers);
-router.post("/", createSupplier);
-router.put("/:id", updateSupplier);
-router.get("/:id/history", supplierHistory);
+router.use(protect);
+
+router.get("/", authorizePermissions("suppliers.read"), listSuppliers);
+router.get("/:id/history", authorizePermissions("suppliers.read"), supplierHistory);
+router.post("/", authorizePermissions("suppliers.write"), createSupplier);
+router.put("/:id", authorizePermissions("suppliers.write"), updateSupplier);
 
 export default router;

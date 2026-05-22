@@ -22,7 +22,7 @@ const fieldLabels = {
 };
 
 const ProductsPage = () => {
-  const { isAdmin } = usePermissions();
+  const { canWriteProducts } = usePermissions();
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [qrModal, setQrModal] = useState(null);
@@ -126,7 +126,7 @@ const ProductsPage = () => {
         </div>
       )}
 
-      {isAdmin && (
+      {canWriteProducts && (
         <form
           onSubmit={onCreate}
           className="grid gap-3 rounded-xl border border-brand-100 bg-white p-4 md:grid-cols-3"

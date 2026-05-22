@@ -9,7 +9,9 @@ const usePermissions = () => {
 
   return {
     isAdmin,
-    can
+    can,
+    canWriteProducts: can("products.write"),  // ← add this
+    canWriteSuppliers: can("suppliers.write") // ← add this
   };
 };
 

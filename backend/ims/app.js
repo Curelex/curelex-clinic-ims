@@ -18,6 +18,9 @@ app.use(
   })
 );
 
+// ← Disable CSP for PDF download route BEFORE general helmet
+app.use("/api/v1/reports/download-pdf", helmet({ contentSecurityPolicy: false }));
+
 // Security & middlewares
 app.use(helmet());
 app.use(morgan("dev"));
@@ -39,7 +42,7 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Routes (mounted at /api/v1 in IMS)
+// Routes
 app.use("/api/v1", routes);
 
 // Error handlers

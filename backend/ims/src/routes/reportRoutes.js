@@ -1,18 +1,3 @@
-// import express from 'express';
-// const { dashboardSummary, stockReport, movementReport, exportSalesCsv } = require("../controllers/reportController");
-// const { protect } = require("../middleware/authMiddleware");
-
-// const router = express.Router();
-
-// router.use(protect);
-// router.get("/dashboard", dashboardSummary);
-// router.get("/stock", stockReport);
-// router.get("/movement", movementReport);
-// router.get("/sales/export.csv", exportSalesCsv);
-
-// export default router;
-
-
 import express from 'express';
 import jwt from "jsonwebtoken";
 import {
@@ -27,20 +12,17 @@ import env from "../config/env.js";
 
 const router = express.Router();
 
-// All routes except PDF download require normal Bearer token auth
-router.use("/dashboard",        protect, dashboardSummary);
-router.use("/stock",            protect, stockReport);
-router.use("/movement",         protect, movementReport);
-router.use("/sales/export.csv", protect, exportSalesCsv);
+// ← changed router.use() to router.get() for all these
+router.get("/dashboard",        protect, dashboardSummary);
+router.get("/stock",            protect, stockReport);
+router.get("/movement",         protect, movementReport);
+router.get("/sales/export.csv", protect, exportSalesCsv);
 
-// PDF download: supports both Bearer token (middleware) AND ?token= query param
-// so browser <a href> direct downloads work without fetch
+// PDF download: supports Bearer token AND ?token= query param
 router.get("/download-pdf", (req, res, next) => {
-  // If Authorization header present, use normal protect middleware
   if (req.headers.authorization) {
     return protect(req, res, next);
   }
-  // Otherwise verify ?token= query param manually
   if (req.query.token) {
     try {
       const decoded = jwt.verify(req.query.token, env.jwtSecret);
