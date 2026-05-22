@@ -603,7 +603,17 @@ function DoctorSelector({ doctors, patients, form, f }) {
             const limit        = doc.dailyTokenLimit ?? 0;
             const limitReached = limit > 0 && todayCount >= limit;
             return (
-              <div key={doc._id} onClick={() => { if (!limitReached) { f('doctorId', String(doc._id)); if (doc.fee) f('totalFee', String(doc.fee)); } }}
+              <div key={doc._id} onClick={() => {
+  if (!limitReached) {
+    f('doctorId', String(doc._id));
+    f('doctorName', doc.name);
+
+    if (doc.fee) {
+      f('totalFee', String(doc.fee));
+    }
+  }
+  
+}}
                 style={{ border: `2px solid ${isSelected ? 'var(--primary)' : limitReached ? '#e74c3c' : 'var(--border)'}`, borderRadius: 10, padding: '12px 14px', cursor: limitReached ? 'not-allowed' : 'pointer', background: isSelected ? 'var(--primary-light)' : limitReached ? 'rgba(231,76,60,0.04)' : 'var(--surface)', opacity: limitReached ? 0.7 : 1, transition: '.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <div>
@@ -674,7 +684,7 @@ function PatientRegister({ doctors, patients, onRegistered }) {
 }
 
 function NewPatientForm({ doctors, patients, prefillPhone, onRegistered, onBack }) {
-  const init = { name: '', age: '', phone: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), whatsapp: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), gender: 'male', symptoms: '', doctorId: '', totalFee: '', paid: '', notes: '', paymentMethod: 'cash' };
+  const init = { name: '', age: '', phone: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), whatsapp: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), gender: 'male', symptoms: '', doctorId: '', doctorName: '', totalFee: '', paid: '', notes: '', paymentMethod: 'cash' };
   const [form, setForm] = useState(init);
   const [err,  setErr]  = useState('');
   const [busy, setBusy] = useState(false);
@@ -683,11 +693,13 @@ function NewPatientForm({ doctors, patients, prefillPhone, onRegistered, onBack 
   async function register() {
     if (!form.name.trim())                            { setErr('Patient name is required.'); return; }
     if (!form.doctorId)                               { setErr('Please select a doctor.'); return; }
+    if (form.doctorName == form.doctorId)                               { setErr('Please select a doctor.'); return; }
     if (!form.symptoms.trim())                        { setErr('Please describe the symptoms.'); return; }
     if (form.phone    && form.phone.length    !== 10) { setErr('Phone number must be exactly 10 digits.'); return; }
     if (form.whatsapp && form.whatsapp.length !== 10) { setErr('WhatsApp number must be exactly 10 digits.'); return; }
     setBusy(true); setErr('');
-    try { await onRegistered({ name: form.name.trim(), age: form.age, phone: form.phone, whatsapp: form.whatsapp, gender: form.gender, symptoms: form.symptoms.trim(), notes: form.notes, doctorId: form.doctorId, totalFee: parseFloat(form.totalFee) || 0, paid: parseFloat(form.paid) || 0, paymentMethod: form.paymentMethod }); setForm(init); }
+    console.log('f',form);
+    try { await onRegistered({ name: form.name.trim(), age: form.age, phone: form.phone, whatsapp: form.whatsapp, gender: form.gender, symptoms: form.symptoms.trim(), notes: form.notes, doctorId: form.doctorId, doctorName:form.doctorName, totalFee: parseFloat(form.totalFee) || 0, paid: parseFloat(form.paid) || 0, paymentMethod: form.paymentMethod }); setForm(init); }
     catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
