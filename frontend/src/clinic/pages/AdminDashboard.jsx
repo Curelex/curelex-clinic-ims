@@ -1468,7 +1468,7 @@ import {
 import { today } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 import { registerPharmacistInIMS } from '../utils/imsAuthBridge';
-import { isSectionVisible } from '../utils/planConfig';   // ✅ ADDED
+import { isSectionVisible, canAddStaff, getPlanConfig } from '../utils/planConfig';   // ✅ ADDED
 
 const IMS_BASE = import.meta.env.VITE_IMS_API_URL || 'http://localhost:5000/ims/api/v1';
 
@@ -2425,66 +2425,181 @@ const SPECIALISTS = [
   'Urologist','Dentist','Eye Specialist','Diabetologist','Chest Specialist',
 ];
 
-function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLimit }) {
-  const [show,      setShow]      = useState(false);
+function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLimit, activePlan }) {
+  const [show, setShow] = useState(false);
   const [detailDoc, setDetailDoc] = useState(null);
-  const [err,       setErr]       = useState('');
-  const [busy,      setBusy]      = useState(false);
-  const [form,      setForm]      = useState({ name:'', specialist:'', phone:'', email:'', password:'', fee:'', schedule: defaultSchedule() });
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ 
+    name: '', 
+    specialist: '', 
+    phone: '', 
+    email: '', 
+    password: '', 
+    fee: '', 
+    schedule: defaultSchedule() 
+  });
+  
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+  // Check if can add more doctors based on plan
+  const canAdd = canAddStaff(activePlan, 'doctors', doctors.length);
+  const planConfig = getPlanConfig(activePlan);
+  const maxDoctors = planConfig.maxDoctors === -1 ? '∞' : planConfig.maxDoctors;
+
   async function addDoctor() {
-    if (!form.name || !form.email || !form.password || !form.specialist) { setErr('Fill all required fields.'); return; }
-    setBusy(true); setErr('');
+    // Check plan limit before adding
+    if (!canAdd.allowed) {
+      setErr(`❌ ${canAdd.upgradeNeeded} allows only ${canAdd.limit} doctor(s). Please upgrade to add more.`);
+      return;
+    }
+    
+    if (!form.name || !form.email || !form.password || !form.specialist) { 
+      setErr('Fill all required fields.'); 
+      return; 
+    }
+    
+    setBusy(true); 
+    setErr('');
     try {
       await onAdd({ role: 'doctor', ...form, fee: parseFloat(form.fee) || 0 });
-      setForm({ name:'', specialist:'', phone:'', email:'', password:'', fee:'', schedule: defaultSchedule() });
+      setForm({ name: '', specialist: '', phone: '', email: '', password: '', fee: '', schedule: defaultSchedule() });
       setShow(false);
-    } catch(e) { setErr(e.message); }
-    finally { setBusy(false); }
+    } catch(e) { 
+      setErr(e.message); 
+    } finally { 
+      setBusy(false); 
+    }
   }
 
   async function removeDoctor(id) {
     if (!window.confirm('Remove this doctor?')) return;
-    try { await onDelete(id); } catch(e) { alert(e.message); }
+    try { 
+      await onDelete(id); 
+    } catch(e) { 
+      alert(e.message); 
+    }
   }
 
   const syncedDetailDoc = detailDoc ? doctors.find((d) => d._id === detailDoc._id) || detailDoc : null;
 
   return (
     <div>
-      <SectionHeader title="Doctors" subtitle={`${doctors.length} doctors registered`} action={<Btn onClick={() => setShow(true)}>+ Add Doctor</Btn>} />
+      <SectionHeader 
+        title="Doctors" 
+        subtitle={`${doctors.length}/${maxDoctors} doctors registered`}
+        action={
+          <Btn 
+            onClick={() => setShow(true)} 
+            disabled={!canAdd.allowed}
+            title={!canAdd.allowed ? `Upgrade to ${canAdd.upgradeNeeded} to add more doctors` : ''}
+          >
+            {canAdd.allowed ? '+ Add Doctor' : `🔒 Limit: ${canAdd.limit} doctor(s)`}
+          </Btn>
+        }
+      />
+      
+      {/* Show warning when limit is reached */}
+      {!canAdd.allowed && doctors.length >= canAdd.limit && (
+        <Alert type="warning" style={{ marginBottom: 16 }}>
+          ⚠️ You've reached the limit of {canAdd.limit} doctor(s) for your {activePlan} plan. 
+          
+        </Alert>
+      )}
+      
       {doctors.length === 0 ? (
-        <Empty icon="👨‍⚕️" title="No doctors yet" desc="Add your first doctor to get started." action={<Btn onClick={() => setShow(true)}>+ Add First Doctor</Btn>} />
+        <Empty 
+          icon="👨‍⚕️" 
+          title="No doctors yet" 
+          desc="Add your first doctor to get started." 
+          action={<Btn onClick={() => setShow(true)}>+ Add First Doctor</Btn>} 
+        />
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(290px,1fr))', gap:16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(290px,1fr))', gap: 16 }}>
           {doctors.map((doc) => (
-            <DoctorCard key={doc._id} doc={doc} onRemove={(e) => { e.stopPropagation(); removeDoctor(doc._id); }} onClick={() => setDetailDoc(doc)} onUpdateTokenLimit={onUpdateTokenLimit} />
+            <DoctorCard 
+              key={doc._id} 
+              doc={doc} 
+              onRemove={(e) => { e.stopPropagation(); removeDoctor(doc._id); }} 
+              onClick={() => setDetailDoc(doc)} 
+              onUpdateTokenLimit={onUpdateTokenLimit} 
+            />
           ))}
         </div>
       )}
-      {syncedDetailDoc && <DoctorDetailModal doc={syncedDetailDoc} patients={patients} onClose={() => setDetailDoc(null)} onUpdateTokenLimit={onUpdateTokenLimit} />}
+      
+      {/* Doctor Detail Modal */}
+      {syncedDetailDoc && (
+        <DoctorDetailModal 
+          doc={syncedDetailDoc} 
+          patients={patients} 
+          onClose={() => setDetailDoc(null)} 
+          onUpdateTokenLimit={onUpdateTokenLimit} 
+        />
+      )}
+      
+      {/* Add Doctor Modal */}
       {show && (
         <Modal title="Add New Doctor" onClose={() => { setShow(false); setErr(''); }}>
-          <div style={{ display:'grid', gap:14 }}>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <Input label="Doctor Name *" value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="Dr. Ahmed Ali" />
-              <Select label="Specialist *" value={form.specialist} onChange={(e) => f('specialist', e.target.value)}>
+          <div style={{ display: 'grid', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Input 
+                label="Doctor Name *" 
+                value={form.name} 
+                onChange={(e) => f('name', e.target.value)} 
+                placeholder="Dr. Ahmed Ali" 
+              />
+              <Select 
+                label="Specialist *" 
+                value={form.specialist} 
+                onChange={(e) => f('specialist', e.target.value)}
+              >
                 <option value="">-- Select --</option>
                 {SPECIALISTS.map((s) => <option key={s} value={s}>{s}</option>)}
               </Select>
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <Input label="Login Email *" type="email" value={form.email} onChange={(e) => f('email', e.target.value)} placeholder="doctor@clinic.com" />
-              <Input label="Password *" type="password" value={form.password} onChange={(e) => f('password', e.target.value)} placeholder="••••••" />
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Input 
+                label="Login Email *" 
+                type="email" 
+                value={form.email} 
+                onChange={(e) => f('email', e.target.value)} 
+                placeholder="doctor@clinic.com" 
+              />
+              <Input 
+                label="Password *" 
+                type="password" 
+                value={form.password} 
+                onChange={(e) => f('password', e.target.value)} 
+                placeholder="••••••" 
+              />
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <Input label="Phone" value={form.phone} onChange={(e) => f('phone', e.target.value)} placeholder="03xx-xxxxxxx" />
-              <Input label="Consultation Fee (Rs.)" type="number" value={form.fee} onChange={(e) => f('fee', e.target.value)} placeholder="500" />
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Input 
+                label="Phone" 
+                value={form.phone} 
+                onChange={(e) => f('phone', e.target.value)} 
+                placeholder="03xx-xxxxxxx" 
+              />
+              <Input 
+                label="Consultation Fee (Rs.)" 
+                type="number" 
+                value={form.fee} 
+                onChange={(e) => f('fee', e.target.value)} 
+                placeholder="500" 
+              />
             </div>
-            <WeeklySchedulePicker value={form.schedule} onChange={(s) => f('schedule', s)} />
+            
+            <WeeklySchedulePicker 
+              value={form.schedule} 
+              onChange={(s) => f('schedule', s)} 
+            />
+            
             {err && <Alert type="error">{err}</Alert>}
-            <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>
+            
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <Btn variant="ghost" onClick={() => { setShow(false); setErr(''); }}>Cancel</Btn>
               <Btn onClick={addDoctor} disabled={busy}>{busy ? 'Adding…' : 'Add Doctor'}</Btn>
             </div>
@@ -2520,65 +2635,152 @@ function DoctorCard({ doc, onRemove, onClick, onUpdateTokenLimit }) {
   );
 }
 
-function ReceptionistManagement({ receptionists, onAdd, onDelete }) {
+function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) {
   const [show, setShow] = useState(false);
-  const [err,  setErr]  = useState('');
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ name:'', email:'', phone:'', password:'' });
+  const [form, setForm] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    password: '' 
+  });
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+  // Check if can add more receptionists based on plan
+  const canAdd = canAddStaff(activePlan, 'receptionists', receptionists.length);
+  const planConfig = getPlanConfig(activePlan);
+  const maxReceptionists = planConfig.maxReceptionists === -1 ? '∞' : planConfig.maxReceptionists;
+
   async function addRec() {
-    if (!form.name || !form.email || !form.password) { setErr('Fill all required fields.'); return; }
-    setBusy(true); setErr('');
+    // Check plan limit before adding
+    if (!canAdd.allowed) {
+      setErr(`❌ ${canAdd.upgradeNeeded} allows only ${canAdd.limit} receptionist(s). Please upgrade to add more.`);
+      return;
+    }
+    
+    if (!form.name || !form.email || !form.password) { 
+      setErr('Fill all required fields.'); 
+      return; 
+    }
+    
+    setBusy(true); 
+    setErr('');
     try {
       await onAdd({ role: 'receptionist', ...form });
-      setForm({ name:'', email:'', phone:'', password:'' });
+      setForm({ name: '', email: '', phone: '', password: '' });
       setShow(false);
-    } catch(e) { setErr(e.message); }
-    finally { setBusy(false); }
+    } catch(e) { 
+      setErr(e.message); 
+    } finally { 
+      setBusy(false); 
+    }
   }
 
   async function removeRec(id) {
     if (!window.confirm('Remove this receptionist?')) return;
-    try { await onDelete(id); } catch(e) { alert(e.message); }
+    try { 
+      await onDelete(id); 
+    } catch(e) { 
+      alert(e.message); 
+    }
   }
 
   return (
     <div>
-      <SectionHeader title="Receptionists" subtitle={`${receptionists.length} receptionists registered`} action={<Btn onClick={() => setShow(true)}>+ Add Receptionist</Btn>} />
+      <SectionHeader 
+        title="Receptionists" 
+        subtitle={`${receptionists.length}/${maxReceptionists} receptionists registered`}
+        action={
+          <Btn 
+            onClick={() => setShow(true)} 
+            disabled={!canAdd.allowed}
+            title={!canAdd.allowed ? `Upgrade to ${canAdd.upgradeNeeded} to add more receptionists` : ''}
+          >
+            {canAdd.allowed ? '+ Add Receptionist' : `🔒 Limit: ${canAdd.limit} receptionist(s)`}
+          </Btn>
+        }
+      />
+      
+      {/* Show warning when limit is reached */}
+      {!canAdd.allowed && receptionists.length >= canAdd.limit && (
+        <Alert type="warning" style={{ marginBottom: 16 }}>
+          ⚠️ You've reached the limit of {canAdd.limit} receptionist(s) for your {activePlan} plan.
+          
+        </Alert>
+      )}
+      
       {receptionists.length === 0 ? (
-        <Empty icon="📋" title="No receptionists yet" desc="Add a receptionist to handle patient registration." action={<Btn onClick={() => setShow(true)}>+ Add Receptionist</Btn>} />
+        <Empty 
+          icon="📋" 
+          title="No receptionists yet" 
+          desc="Add a receptionist to handle patient registration." 
+          action={<Btn onClick={() => setShow(true)}>+ Add Receptionist</Btn>} 
+        />
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 16 }}>
           {receptionists.map((rec) => (
             <Card key={rec._id}>
-              <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-                <div style={{ width:44, height:44, borderRadius:22, background:'var(--accent-light)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>📋</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontWeight:700, fontSize:15 }}>{rec.name}</div>
-                  <div style={{ fontSize:12, color:'var(--text-muted)' }}>Receptionist</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 22, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📋</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{rec.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Receptionist</div>
                 </div>
-                <button onClick={() => removeRec(rec._id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--danger)', fontSize:16 }}>🗑</button>
+                <button 
+                  onClick={() => removeRec(rec._id)} 
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: 4 }}
+                >
+                  🗑
+                </button>
               </div>
-              <div style={{ fontSize:13 }}>
-                <div style={{ color:'var(--text-muted)' }}>✉️ {rec.email}</div>
-                {rec.phone && <div style={{ color:'var(--text-muted)', marginTop:4 }}>📞 {rec.phone}</div>}
+              <div style={{ fontSize: 13 }}>
+                <div style={{ color: 'var(--text-muted)' }}>✉️ {rec.email}</div>
+                {rec.phone && <div style={{ color: 'var(--text-muted)', marginTop: 4 }}>📞 {rec.phone}</div>}
               </div>
             </Card>
           ))}
         </div>
       )}
+      
+      {/* Add Receptionist Modal */}
       {show && (
         <Modal title="Add Receptionist" onClose={() => { setShow(false); setErr(''); }}>
-          <div style={{ display:'grid', gap:14 }}>
-            <Input label="Full Name *" value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="e.g. Ayesha Bibi" />
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <Input label="Login Email *" type="email" value={form.email} onChange={(e) => f('email', e.target.value)} placeholder="rec@clinic.com" />
-              <Input label="Password *" type="password" value={form.password} onChange={(e) => f('password', e.target.value)} placeholder="••••••" />
+          <div style={{ display: 'grid', gap: 14 }}>
+            <Input 
+              label="Full Name *" 
+              value={form.name} 
+              onChange={(e) => f('name', e.target.value)} 
+              placeholder="e.g. Ayesha Bibi" 
+            />
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Input 
+                label="Login Email *" 
+                type="email" 
+                value={form.email} 
+                onChange={(e) => f('email', e.target.value)} 
+                placeholder="rec@clinic.com" 
+              />
+              <Input 
+                label="Password *" 
+                type="password" 
+                value={form.password} 
+                onChange={(e) => f('password', e.target.value)} 
+                placeholder="••••••" 
+              />
             </div>
-            <Input label="Phone" value={form.phone} onChange={(e) => f('phone', e.target.value)} placeholder="03xx-xxxxxxx" />
+            
+            <Input 
+              label="Phone" 
+              value={form.phone} 
+              onChange={(e) => f('phone', e.target.value)} 
+              placeholder="03xx-xxxxxxx" 
+            />
+            
             {err && <Alert type="error">{err}</Alert>}
-            <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>
+            
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <Btn variant="ghost" onClick={() => { setShow(false); setErr(''); }}>Cancel</Btn>
               <Btn onClick={addRec} disabled={busy}>{busy ? 'Adding…' : 'Add Receptionist'}</Btn>
             </div>
