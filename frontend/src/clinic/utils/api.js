@@ -175,6 +175,14 @@ export async function apiAddUser(userData) {
   });
 }
 
+// ── Update User ──────────────────────────────────────────────────
+export async function apiUpdateUser(userId, userData) {
+  return request(`/users/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(userData),
+  });
+}
+
 export async function apiDeleteUser(userId) {
   return request(`/users/${userId}`, { method: 'DELETE' });
 }

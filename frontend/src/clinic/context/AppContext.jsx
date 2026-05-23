@@ -10,6 +10,7 @@ import {
   apiUpdateMyClinic,
   apiGetUsers,
   apiAddUser,
+  apiUpdateUser,
   apiDeleteUser,
   apiGetPatients,
   apiAddPatient,
@@ -141,6 +142,7 @@ export function AppProvider({ children }) {
   // ── Users ────────────────────────────────────────────────────────────────────
   const getUsers   = useCallback(() => apiGetUsers(), []);
   const addUser    = useCallback((data) => apiAddUser(data), []);
+  const updateUser = useCallback((userId, data) => apiUpdateUser(userId, data), []);
   const deleteUser = useCallback((userId) => apiDeleteUser(userId), []);
   const getMe      = useCallback(() => apiGetMe(), []);
 
@@ -196,7 +198,7 @@ export function AppProvider({ children }) {
       // ── Clinic ──
       refreshClinic, saveClinic,
       // ── Users ──
-      getUsers, addUser, deleteUser, getMe,
+      getUsers, addUser, updateUser, deleteUser, getMe,
       // ── Token ──
       updateTokenLimit,
       // ── Patients ──

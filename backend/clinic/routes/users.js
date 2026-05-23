@@ -141,6 +141,83 @@ router.patch('/:id/token-limit', auth, async (req, res) => {
   }
 });
 
+// ── PATCH /api/users/:id  — update user ──────────────────────────
+router.patch('/:id', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ message: 'Admin only.' });
+
+    const user = await User.findOne({
+      _id: req.params.id,
+      clinicId: req.user.clinicId,
+    });
+
+    if (!user)
+      return res.status(404).json({ message: 'User not found.' });
+
+    const {
+      name,
+      email,
+      password,
+      phone,
+      specialist,
+      fee,
+      role,
+      schedule,
+    } = req.body;
+
+    // prevent invalid role updates
+    if (
+      role &&
+      !['doctor', 'receptionist', 'pharmacist'].includes(role)
+    ) {
+      return res.status(400).json({ message: 'Invalid role.' });
+    }
+
+    // check duplicate email
+    if (email && email.toLowerCase() !== user.email) {
+      const exists = await User.findOne({
+        clinicId: req.user.clinicId,
+        email: email.toLowerCase(),
+        _id: { $ne: user._id },
+      });
+
+      if (exists) {
+        return res.status(400).json({
+          message: 'This email is already in use.',
+        });
+      }
+
+      user.email = email.toLowerCase();
+    }
+
+    // update fields
+    if (name !== undefined) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (specialist !== undefined) user.specialist = specialist;
+    if (fee !== undefined) user.fee = fee;
+    if (role !== undefined) user.role = role;
+
+    // update schedule
+    if (schedule !== undefined) {
+      user.schedule = sanitiseSchedule(schedule);
+    }
+
+    // update password only if provided
+    if (password && password.trim() !== '') {
+      user.password = await bcrypt.hash(password, 10);
+    }
+
+    await user.save();
+
+    const { password: _, ...safe } = user.toObject();
+
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ── DELETE /api/users/:id ─────────────────────────────────────────
 router.delete('/:id', auth, async (req, res) => {
   try {
