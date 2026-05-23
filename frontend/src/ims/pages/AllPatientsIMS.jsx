@@ -13,7 +13,7 @@ function getTodayIST() {
 
 function authHeader() {
   const token =
-    localStorage.getItem('clinic_token') ||  // ← clinic token first
+    localStorage.getItem('clinic_token') ||
     localStorage.getItem('ims_token')     ||
     localStorage.getItem('token')         ||
     sessionStorage.getItem('token') || '';
@@ -262,7 +262,6 @@ export default function AllPatientsIMS() {
       const pats = Array.isArray(pData) ? pData : (pData?.patients || []);
       setPatients(pats);
 
-      // Build unique doctors list from patient data — no /users call needed
       const doctorMap = {};
       pats.forEach(p => {
         if (p.doctorId && !doctorMap[p.doctorId]) {
@@ -302,35 +301,16 @@ export default function AllPatientsIMS() {
   // sort each group by token
   Object.values(grouped).forEach(g => g.patients.sort((a, b) => a.token - b.token));
 
-  const totalPaid = filtered.reduce((s, p) => s + (p.paid || 0), 0);
-  const totalDues = filtered.reduce((s, p) => s + (p.dues || 0), 0);
-
-  const inputStyle = { padding: '8px 12px', borderRadius: 9, border: '1.5px solid #d0dce8', fontSize: 13, fontFamily: 'inherit', color: '#0a3d62', background: '#fff', outline: 'none', width: '100%', boxSizing: 'border-box' };
+  const inputStyle  = { padding: '8px 12px', borderRadius: 9, border: '1.5px solid #d0dce8', fontSize: 13, fontFamily: 'inherit', color: '#0a3d62', background: '#fff', outline: 'none', width: '100%', boxSizing: 'border-box' };
   const selectStyle = { ...inputStyle, cursor: 'pointer' };
 
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+
       {/* ── page header ── */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0a3d62', marginBottom: 4 }}>All Patients</h1>
         <p style={{ fontSize: 13, color: '#8fa8bc', margin: 0 }}>All patients across all doctors — click any row to view uploaded files</p>
-      </div>
-
-      {/* ── summary stats ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
-        {[
-          { label: 'Total Patients', value: filtered.length,              icon: '👥', color: '#1565a8', bg: 'rgba(21,101,168,0.08)',  border: 'rgba(21,101,168,0.18)'  },
-          { label: 'Completed',      value: filtered.filter(p=>p.status==='done').length,    icon: '✅', color: '#00a878', bg: 'rgba(0,184,148,0.08)',   border: 'rgba(0,184,148,0.18)'   },
-          { label: 'Still Waiting',  value: filtered.filter(p=>p.status==='waiting').length, icon: '⏳', color: '#d68910', bg: 'rgba(214,137,16,0.08)',  border: 'rgba(214,137,16,0.18)'  },
-          { label: 'Revenue Rs.',    value: `Rs.${totalPaid.toLocaleString()}`, icon: '💰', color: '#00a878', bg: 'rgba(0,184,148,0.08)',   border: 'rgba(0,184,148,0.18)'   },
-          { label: 'Dues Rs.',       value: `Rs.${totalDues.toLocaleString()}`, icon: '⚠️', color: '#e74c3c', bg: 'rgba(231,76,60,0.08)',   border: 'rgba(231,76,60,0.18)'   },
-        ].map(({ label, value, icon, color, bg, border }) => (
-          <div key={label} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: '14px 16px' }}>
-            <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
-            <div style={{ fontWeight: 800, fontSize: 18, color, lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: 11, color: '#8fa8bc', marginTop: 4 }}>{label}</div>
-          </div>
-        ))}
       </div>
 
       {/* ── filters ── */}
