@@ -1714,6 +1714,7 @@ export default function AdminDashboard({ onChoosePlan }) {
     getUsers, addUser, updateUser, deleteUser,
     getPatients, updatePatientStatus,
     updateTokenLimit, updateFollowUp,
+    getRevenueReport
   } = useApp();
 
   const [tab,      setTab]      = useState('overview');
@@ -1883,7 +1884,7 @@ async function handleUpdateDoctor(doctorId, updates) {
           {tab === 'followups'     && <AdminFollowUps patients={patients} doctors={doctors} onUpdateFollowUp={handleUpdateFollowUp} />}
           {tab === 'settings'      && <ClinicSettings clinic={clinic} onSave={handleSaveClinic} />}
           {tab === 'pharmacists'   && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} />}
-          {tab === 'revenue'       && <RevenueSection patients={patients} doctors={doctors} pharmacists={pharmacists} session={session} />}
+          {tab === 'revenue'       && <RevenueSection patients={patients} doctors={doctors} pharmacists={pharmacists} session={session} getRevenueReport={getRevenueReport} />}
         </DashboardLayout>
       </div>
       {!active && <PlanGateOverlay clinicName={clinic.name} onChoosePlan={onChoosePlan} />}
@@ -1979,7 +1980,7 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
 }
 
 /* ── Revenue Section ─────────────────────────────────────────────── */
-function RevenueSection({ patients, doctors, pharmacists, session }) {
+function RevenueSection({ patients, doctors, pharmacists, session, getRevenueReport }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate,   setToDate]   = useState(todayStr);
@@ -1994,11 +1995,9 @@ function RevenueSection({ patients, doctors, pharmacists, session }) {
     setImsLoading(true); setImsError(''); setImsData(null);
     try {
       const token = session?.token || localStorage.getItem('clinic_token') || '';
-      const res = await fetch(`${IMS_BASE}/reports/revenue?from=${fromDate}&to=${toDate}`, {
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      });
+      const res = await getRevenueReport(fromDate, toDate);
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `IMS error: ${res.status}`); }
-      setImsData(await res.json());
+      setImsData(res);
     } catch (e) { setImsError(e.message); }
     finally { setImsLoading(false); }
   }

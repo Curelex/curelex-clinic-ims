@@ -23,6 +23,7 @@ import {
   apiDeletePatientFile,
   apiGetPatientHistory,
   apiActivatePlan,
+  apiGetRevenueReport
 } from '../utils/api';
 
 const AppContext = createContext(null);
@@ -176,6 +177,10 @@ export function AppProvider({ children }) {
     setActivePlan(planKey);
   }, [setActivePlan]);
 
+  const getRevenueReport = useCallback(
+    (from, to) => apiGetRevenueReport(from, to), []
+  );
+
   return (
     <AppContext.Provider value={{
       session, login, logout,
@@ -185,7 +190,7 @@ export function AppProvider({ children }) {
       updateTokenLimit,
       getPatients, addPatient, updatePatientStatus, updateFollowUp,
       uploadPatientFile, getPatientFiles, downloadPatientFile, deletePatientFile,
-      getPatientHistory,
+      getPatientHistory, getRevenueReport
     }}>
       {children}
     </AppContext.Provider>

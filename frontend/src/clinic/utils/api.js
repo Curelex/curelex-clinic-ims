@@ -650,3 +650,7 @@ export async function apiGetQueueStatus(sessionToken) {
   if (!res.ok) throw new Error(data.message || 'Queue session not found');
   return data;
 }
+
+export async function apiGetRevenueReport(from, to) {
+  return request(`/clinics/revenue?from=${from}&to=${to}`);
+}
