@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from "jsonwebtoken";
 import {
   listSales,
   createSaleTransaction,
@@ -10,13 +11,32 @@ import { protect } from "../middleware/authMiddleware.js";
 import validateRequest from "../middleware/validateRequest.js";
 import { saleValidator } from "../middleware/validators.js";
 import { authorizePermissions } from "../middleware/authorize.js";
+import env from "../config/env.js";
 
 const router = express.Router();
 
-// FIX: invoice.pdf is declared BEFORE router.use(protect) so the protect
-// middleware does NOT run for this route. Auth is handled inside the
-// controller via the ?token= query param (JWT verified manually).
-router.get("/:id/invoice.pdf", downloadInvoicePdf);
+// ✅ Reusable middleware — supports Bearer token AND ?token= query param
+const protectOrQueryToken = (req, res, next) => {
+  if (req.headers.authorization) {
+    return protect(req, res, next);
+  }
+  if (req.query.token) {
+    try {
+      const decoded = jwt.verify(req.query.token, env.jwtSecret);
+      req.user = {
+        _id:      decoded.id,
+        clinicId: decoded.clinicId, // ✅ clinicId must be here
+      };
+      return next();
+    } catch {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+  }
+  return res.status(401).json({ message: "Unauthorized" });
+};
+
+// ✅ FIXED — now has proper auth with clinicId
+router.get("/:id/invoice.pdf", protectOrQueryToken, downloadInvoicePdf);
 
 router.use(protect);
 router.get("/",              authorizePermissions("sales.read"),   listSales);

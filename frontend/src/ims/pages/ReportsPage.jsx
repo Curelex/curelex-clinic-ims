@@ -7,7 +7,7 @@ import { fetchStockReport, fetchDashboardSummary } from "../services/reportServi
 import { currency } from "../utils/format";
 
 const PERIODS = ["daily", "weekly", "monthly", "yearly"];
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/ims/api/v1";
 
 const ReportsPage = () => {
   const [rows, setRows]       = useState([]);

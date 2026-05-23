@@ -32,7 +32,7 @@
 
 import api from "./api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/ims/api/v1";
 
 export const fetchSales = async (params = {}) => {
   const { data } = await api.get("/sales", { params });

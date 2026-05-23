@@ -5,9 +5,8 @@ import { changeStock } from "../services/inventoryService.js";
 
 // GET /inventory
 const listInventory = asyncHandler(async (req, res) => {
-  const clinicId = req.user.clinicId; // ← ADDED
+  const clinicId = req.user.clinicId;
 
-  // ← ADDED: only fetch products belonging to this clinic
   const clinicProducts = await Product.find({ clinicId }, "_id").lean();
   const productIds = clinicProducts.map((p) => p._id);
 
@@ -36,14 +35,14 @@ const listInventory = asyncHandler(async (req, res) => {
 // POST /inventory/adjust
 const adjustInventory = asyncHandler(async (req, res) => {
   const { productId, adjustment, reason, expiryDate } = req.body;
-  const clinicId = req.user.clinicId; // ← ADDED
+  const clinicId = req.user.clinicId; // ← clinic isolation
 
-  // ← ADDED: make sure product belongs to this clinic
   const product = await Product.findOne({ _id: productId, clinicId });
   if (!product) { res.status(404); throw new Error("Product not found"); }
 
   const updated = await changeStock({
     productId,
+    clinicId,        // ← FIXED: was missing, caused 500
     quantityChange: Number(adjustment),
     movementType: "adjustment",
     reason: reason || "manual adjustment",
@@ -53,7 +52,10 @@ const adjustInventory = asyncHandler(async (req, res) => {
   });
 
   if (expiryDate) {
-    await Inventory.findOneAndUpdate({ product: productId }, { expiryDate: new Date(expiryDate) });
+    await Inventory.findOneAndUpdate(
+      { product: productId },
+      { expiryDate: new Date(expiryDate) }
+    );
   }
 
   res.json({ message: "Stock adjusted", data: updated });
@@ -61,14 +63,13 @@ const adjustInventory = asyncHandler(async (req, res) => {
 
 // GET /inventory/low-stock
 const lowStock = asyncHandler(async (req, res) => {
-  const clinicId = req.user.clinicId; // ← ADDED
+  const clinicId = req.user.clinicId;
 
-  // ← ADDED: filter by clinic's products only
   const clinicProducts = await Product.find({ clinicId }, "_id").lean();
   const productIds = clinicProducts.map((p) => p._id);
 
   const docs = await Inventory.aggregate([
-    { $match: { product: { $in: productIds } } }, // ← ADDED
+    { $match: { product: { $in: productIds } } },
     { $lookup: { from: "products", localField: "product", foreignField: "_id", as: "product" } },
     { $unwind: "$product" },
     { $match: { $expr: { $lte: ["$quantity", "$product.lowStockThreshold"] } } },

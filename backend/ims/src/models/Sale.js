@@ -17,10 +17,9 @@ const saleItemSchema = new mongoose.Schema(
 
 const saleSchema = new mongoose.Schema(
   {
-    // ── ADDED: clinic isolation ──
     clinicId: { type: String, required: true, index: true },
 
-    invoiceNo:      { type: String, required: true, unique: true, index: true },
+    invoiceNo:      { type: String, required: true }, // ← FIXED: removed unique:true
     customer:       { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
     walkInName:     { type: String, default: "" },
     items:          { type: [saleItemSchema], default: [] },
@@ -45,5 +44,8 @@ const saleSchema = new mongoose.Schema(
 
 saleSchema.index({ createdAt: -1 });
 saleSchema.index({ clinicId: 1, createdAt: -1 });
+
+// ← FIXED: invoiceNo unique per clinic, not globally
+saleSchema.index({ clinicId: 1, invoiceNo: 1 }, { unique: true });
 
 export default mongoose.model("Sale", saleSchema);

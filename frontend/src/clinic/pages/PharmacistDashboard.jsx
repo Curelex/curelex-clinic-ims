@@ -21,7 +21,7 @@ export default function PharmacistDashboard() {
       return;
     }
 
-    const ssoToken = sessionStorage.getItem("ims_sso_token");
+    const ssoToken = localStorage.getItem("ims_sso_token"); // ← FIXED
     if (!ssoToken) {
       setStatus("error");
       return;
@@ -36,7 +36,7 @@ export default function PharmacistDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "SSO failed");
 
-      sessionStorage.removeItem("ims_sso_token");
+      localStorage.removeItem("ims_sso_token"); // ← FIXED
       localStorage.setItem("ims_token", data.token);
       window.location.replace("/ims");
     } catch (err) {
