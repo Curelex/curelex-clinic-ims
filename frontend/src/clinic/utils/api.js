@@ -323,9 +323,7 @@
 
 
 // ── Curelex API Service (Merged Version) ─────────────────────────────────────
-const BASE = import.meta.env.VITE_CLINIC_API_URL
-  ? `${import.meta.env.VITE_CLINIC_API_URL}`
-  : '/api/clinic';
+const BASE = import.meta.env.VITE_CLINIC_API_URL || '/api/clinic';
 
 // ── Token / Session helpers ──────────────────────────────────────────────────
 export function getToken()      { return localStorage.getItem('clinic_token'); }
