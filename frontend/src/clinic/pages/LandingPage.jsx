@@ -1302,7 +1302,7 @@ export default function LandingPage() {
                 {[
                   { icon: '📧', label: 'Email', value: 'supprt@curelex.in' },
                   { icon: '📞', label: 'Phone', value: '+91 89578 09085' },
-                  { icon: '📍', label: 'Address', value: 'IIIT Allahabad UP' },
+                  { icon: '📍', label: 'Address', value: 'IIIT Prayagraj UP' },
                 ].map(({ icon, label, value }) => (
                   <div key={label} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                     <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(10,61,98,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>{icon}</div>
