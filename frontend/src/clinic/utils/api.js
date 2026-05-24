@@ -371,6 +371,10 @@ async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
+  console.log('BASE:', BASE);
+  console.log('PATH:', path);
+  console.log('FINAL URL:', `${BASE}${path}`);
+
   try {
     const res = await fetch(`${BASE}${path}`, { ...options, headers });
     const data = await res.json().catch(() => ({}));

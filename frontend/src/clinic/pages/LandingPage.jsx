@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { apiRegister, apiLogin } from '../utils/api';
 import curelexLogo from '../assets/image.png';
+import {useNavigate} from "react-router-dom";
 
 // // ── Mobile detection hook ─────────────────────────────────────────────────────
 function useIsMobile() {
@@ -29,32 +30,65 @@ const isValidPhone = (phone) => {
 async function fetchPincodeData(pincode) {
   try {
     const res = await fetch(
-      `https://api.postalpincode.in/pincode/${pincode}`
+      `${import.meta.env.VITE_CLINIC_API_URL}/pincode/${pincode}`
     );
-    if (!res.ok) throw new Error('Network error');
+
     const json = await res.json();
-    if (!json || !json[0] || json[0].Status !== 'Success') return null;
+    if (
+      !json ||
+      !json[0] ||
+      json[0].Status !== "Success"
+    ) {
+      return null;
+    }
 
-    const postOffices = json[0].PostOffice;
-    if (!postOffices || postOffices.length === 0) return null;
+    const postOffices =
+      json[0].PostOffice;
 
-    // Use first post office for state & district; collect all for city options
+    if (
+      !postOffices ||
+      postOffices.length === 0
+    ) {
+      return null;
+    }
+
     const first = postOffices[0];
-    const cities = [...new Set(postOffices.map((p) => p.Name))];
-    const subDistricts = [...new Set(postOffices.map((p) => p.Block).filter(Boolean))];
+
+    const cities = [
+      ...new Set(
+        postOffices.map((p) => p.Name)
+      ),
+    ];
+
+    const subDistricts = [
+      ...new Set(
+        postOffices
+          .map((p) => p.Block)
+          .filter(
+            (block) =>
+              block &&
+              block !== "NA"
+          )
+      ),
+    ];
 
     return {
       state: first.State,
       district: first.District,
-      subDistrict: subDistricts[0] || '',
-      allSubDistricts: subDistricts,
+      subDistrict:
+        subDistricts[0] || "",
+      allSubDistricts:
+        subDistricts,
       cities,
     };
-  } catch {
+  } catch (err) {
+    console.error(
+      "Pincode fetch error:",
+      err
+    );
     return null;
   }
 }
-
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
   brand:       '#0a3d62',
@@ -332,15 +366,28 @@ function PincodeField({ value, onChange, onAutoFill, S, disabled }) {
   const [status, setStatus] = useState(null); // null | 'loading' | 'found' | 'not-found'
 
   async function handleChange(e) {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const val = e.target.value
+      .replace(/\D/g, '')
+      .slice(0, 6);
+  
     onChange(val);
     setStatus(null);
-
+  
     if (val.length === 6) {
+      console.log("Calling API...");
       setStatus('loading');
+  
       const data = await fetchPincodeData(val);
+  
+      console.log("API DATA:", data);
+  
       if (data) {
-        onAutoFill(data.state, data.district, data.cities, data.allSubDistricts);
+        onAutoFill(
+          data.state,
+          data.district,
+          data.cities,
+          data.allSubDistricts
+        );
         setStatus('found');
       } else {
         setStatus('not-found');
@@ -633,11 +680,11 @@ export default function LandingPage() {
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [contactAlert, setContactAlert] = useState('');
   const [contactSuccess, setContactSuccess] = useState(false);
-  const [nlEmail, setNlEmail] = useState('');
   const toastTimer = useRef(null);
   const { login } = useApp();
   const mob = useIsMobile();
   const S   = makeStyles(mob);
+  const navigate = useNavigate();
 
   const [mode,    setMode]    = useState(null);
   const [role,    setRole]    = useState('superadmin');
@@ -657,70 +704,142 @@ export default function LandingPage() {
   const f      = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const goBack = () => { setMode(null); setErr(''); };
 
-  function handlePincodeAutoFill(state, district, cities, subDistricts) {
+  function handlePincodeAutoFill(
+    state,
+    district,
+    cities,
+    subDistricts
+  ) {
+    console.log("AUTOFILL HIT");
+  
     setApiCities(cities || []);
+  
     setForm(p => ({
       ...p,
       state,
       district,
-      city: cities && cities.length === 1 ? cities[0] : '',
-      subDistrict: subDistricts && subDistricts.length > 0 ? subDistricts[0] : '',
+      city:
+        cities?.length === 1
+          ? cities[0]
+          : '',
+      subDistrict:
+        subDistricts?.[0] || '',
     }));
   }
 
+  // Register
   async function handleRegister() {
     setErr('');
-
-    if (!form.clinicName || !form.ownerName || !form.email || !form.password) {
-      setErr('Please fill in all required fields (Clinic Name, Owner Name, Email, Password).'); return;
+  
+    if (
+      !form.clinicName ||
+      !form.ownerName ||
+      !form.email ||
+      !form.password
+    ) {
+      setErr(
+        'Please fill in all required fields.'
+      );
+      return;
     }
+  
     if (!isValidEmail(form.email)) {
-      setErr('Please enter a valid email address.'); return;
+      setErr(
+        'Please enter a valid email address.'
+      );
+      return;
     }
-    if (form.phone && !isValidPhone(form.phone)) {
-      setErr('Phone number must be exactly 10 digits.'); return;
-    }
-    if (form.whatsapp && !isValidPhone(form.whatsapp)) {
-      setErr('WhatsApp number must be exactly 10 digits.'); return;
-    }
-    if (form.password.length < 6) {
-      setErr('Password must be at least 6 characters.'); return;
-    }
-
+  
     setLoading(true);
+  
     try {
-      const data = await apiRegister(form);
-      login({ type: 'admin', clinicId: data.clinicId, user: data.clinic });
-      window.location.href = '/clinic/dashboard';
+      const data =
+        await apiRegister(form);
+  
+      console.log(
+        "REGISTER RESPONSE:",
+        data
+      );
+  
+      login({
+        token: data.token,
+        accessToken:
+          data.token,
+        type:
+          data.role?.toLowerCase(),
+        role:
+          data.role?.toLowerCase(),
+        clinicId:
+          data.clinicId,
+        user:
+          data.clinic ||
+          data.user ||
+          null,
+      });
+  
+      setMode(null);
+  
+      navigate('/clinic');
+  
     } catch (e) {
-      setErr(e.message || 'Registration failed. Please try again.');
+      setErr(
+        e.message ||
+        'Registration failed.'
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  // ── Login ─────────────────────────────────────────────────────────────────
-  async function handleLogin() {
-    setErr('');
-    if (!form.email || !form.password) {
-      setErr('Please enter your email and password.'); return;
-    }
-    if (!isValidEmail(form.email)) {
-      setErr('Please enter a valid email address.'); return;
-    }
-    setLoading(true);
-    try {
-      const data = await apiLogin(role, form.email, form.password);
-      login({ type: data.role, clinicId: data.clinicId, user: data.clinic || data.user || null });
+  //  Login 
+ async function handleLogin() {
+  setErr('');
 
-      const redirectPath = data.role === 'superadmin' ? '/clinic/superadmin' : '/clinic/dashboard';
-      window.location.href = redirectPath;
-    } catch (e) {
-      setErr(e.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
+  if (!form.email || !form.password) {
+    setErr('Please enter your email and password.');
+    return;
   }
+
+  setLoading(true);
+
+  try {
+    console.log("STEP 1");
+
+    const data = await apiLogin(
+      role,
+      form.email,
+      form.password
+    );
+
+    console.log("STEP 2 LOGIN RESPONSE:", data);
+
+    login({
+      token: data.token,
+      type: data.role,
+      role: data.role,
+      clinicId: data.clinicId,
+      user:
+        data.clinic ||
+        data.user ||
+        null
+    });
+
+    console.log("STEP 3 LOGIN CALLED");
+
+    navigate('/clinic');
+
+    console.log("STEP 4 NAVIGATED");
+
+  } catch (e) {
+    console.error("LOGIN ERROR:", e);
+    setErr(
+      e.message ||
+      'Login failed.'
+    );
+  } finally {
+    setLoading(false);
+  }
+}
 
   const roles = [
         { key: 'superadmin',   label: '⭐  Super Admin'  },
@@ -766,7 +885,7 @@ export default function LandingPage() {
   
     try {
       const response = await fetch(
-        "http://localhost:5001/api/clinic/contact",
+        `${import.meta.env.VITE_CLINIC_API_URL}/contact`,
         {
           method: "POST",
           headers: {
@@ -837,7 +956,6 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const cssVarString = Object.entries(themeVars).map(([k, v]) => `${k}:${v}`).join(';');
 
   const services = [
     { icon: '🔁', title: 'Smart Queue Management', desc: 'AI-powered queue assignment that minimizes patient wait times and optimizes doctor schedules in real time.', iconBg: 'rgba(0,184,148,.1)', delay: 0 },
