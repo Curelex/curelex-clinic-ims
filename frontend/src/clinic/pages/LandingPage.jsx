@@ -1300,7 +1300,7 @@ export default function LandingPage() {
               <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.7, fontWeight: 300 }}>Have a question about Curelex? Our team is ready to help you get started.</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 32 }}>
                 {[
-                  { icon: '📧', label: 'Email', value: 'supprt@curelex.in' },
+                  { icon: '📧', label: 'Email', value: 'support@curelex.in' },
                   { icon: '📞', label: 'Phone', value: '+91 89578 09085' },
                   { icon: '📍', label: 'Address', value: 'IIIT Prayagraj UP' },
                 ].map(({ icon, label, value }) => (

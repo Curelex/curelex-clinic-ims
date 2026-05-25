@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 
-const IMS_BASE = import.meta.env.VITE_IMS_API_URL || "http://localhost:5000/ims/api/v1";
-const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL || "http://localhost:5000/api/clinic";
+const IMS_BASE = import.meta.env.VITE_IMS_API_URL || "https://curelex.in/ims/api/v1";
+const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL || "https://curelex.in/api/clinic";
 
 export default function PharmacistDashboard() {
   const { logout } = useApp();
@@ -10,7 +10,6 @@ export default function PharmacistDashboard() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    // ✅ Clear stale sso_attempt on fresh mount so it always tries
     sessionStorage.removeItem("sso_attempt");
     connect();
   }, []);
@@ -32,14 +31,12 @@ export default function PharmacistDashboard() {
   }
 
   async function connect() {
-    // ✅ Already have IMS token — go directly
     if (localStorage.getItem("ims_token")) {
       window.location.replace("/ims");
       return;
     }
 
     try {
-      // ✅ Always get a FRESH SSO token — never reuse old one
       const ssoToken = await getFreshSsoToken();
 
       const res = await fetch(`${IMS_BASE}/auth/sso-exchange`, {
