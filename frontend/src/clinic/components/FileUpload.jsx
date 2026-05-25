@@ -1,10 +1,78 @@
-import React, { useRef, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 
+// ── Image compressor ──────────────────────────────────────────────
+// Compresses any image to under maxSizeKB at given quality steps
+async function compressImage(file, maxSizeKB = 500, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+
+        // Scale down if image is very large
+        let { width, height } = img;
+        const MAX_DIM = 1920;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width  = MAX_DIM;
+          } else {
+            width  = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        canvas.width  = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Try compressing at decreasing quality until under maxSizeKB
+        const tryCompress = (q) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) { reject(new Error('Compression failed')); return; }
+              if (blob.size / 1024 <= maxSizeKB || q <= 0.1) {
+                // Done — return as a File
+                const compressed = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve({ file: compressed, originalSize: file.size, compressedSize: blob.size });
+              } else {
+                tryCompress(Math.max(q - 0.1, 0.1));
+              }
+            },
+            'image/jpeg',
+            q
+          );
+        };
+
+        tryCompress(quality);
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+  });
+}
+
+// ── Format bytes ──────────────────────────────────────────────────
+const formatSize = (bytes) => {
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+// ── Main Component ────────────────────────────────────────────────
 export function FileUploadSection({ patientId, files = [], onUpload, onDelete, onDownload, disabled = false }) {
   const fileInputRef   = useRef(null);
   const cameraInputRef = useRef(null);
-  const [uploading,   setUploading]   = useState(false);
-  const [uploadError, setUploadError] = useState(null);
+  const [uploading,     setUploading]     = useState(false);
+  const [uploadError,   setUploadError]   = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(null); // { originalSize, compressedSize, name }
 
   const filesArray = useMemo(() => {
     if (Array.isArray(files)) return files;
@@ -12,15 +80,12 @@ export function FileUploadSection({ patientId, files = [], onUpload, onDelete, o
     return [];
   }, [files]);
 
-  // ── FIX: no setTimeout, no race condition ─────────────────────
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('File too large. Maximum size is 5MB.');
-      return;
-    }
+    setUploadError(null);
+    setUploadSuccess(null);
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
     if (!allowedTypes.includes(file.type)) {
@@ -29,14 +94,37 @@ export function FileUploadSection({ patientId, files = [], onUpload, onDelete, o
     }
 
     setUploading(true);
-    setUploadError(null);
 
     try {
-      // onUpload is the parent's handleUploadFile which awaits upload then re-fetches
-      await onUpload(patientId, file);
-      // Clear input after successful upload
+      let fileToUpload = file;
+      let originalSize = file.size;
+      let compressedSize = file.size;
+
+      // Compress images (not PDFs)
+      if (file.type.startsWith('image/')) {
+        const result = await compressImage(file, 500, 0.85);
+        fileToUpload   = result.file;
+        originalSize   = result.originalSize;
+        compressedSize = result.compressedSize;
+      }
+
+      await onUpload(patientId, fileToUpload);
+
+      // Show success with compression info
+      setUploadSuccess({
+        name:           file.name,
+        originalSize,
+        compressedSize,
+        wasCompressed:  compressedSize < originalSize,
+      });
+
+      // Clear inputs
       if (fileInputRef.current)   fileInputRef.current.value   = '';
       if (cameraInputRef.current) cameraInputRef.current.value = '';
+
+      // Auto-dismiss success after 4s
+      setTimeout(() => setUploadSuccess(null), 4000);
+
     } catch (err) {
       setUploadError(err.message || 'Upload failed');
     } finally {
@@ -63,15 +151,9 @@ export function FileUploadSection({ patientId, files = [], onUpload, onDelete, o
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024)           return bytes + ' B';
-    if (bytes < 1024 * 1024)    return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
   const getFileIcon = (mimeType) => {
     if (mimeType?.startsWith('image/')) return '🖼️';
-    if (mimeType === 'application/pdf') return '📄';
+    if (mimeType === 'application/pdf')  return '📄';
     return '📎';
   };
 
@@ -136,6 +218,27 @@ export function FileUploadSection({ patientId, files = [], onUpload, onDelete, o
         </div>
       </div>
 
+      {/* ── Uploading progress indicator ── */}
+      {uploading && (
+        <div style={{ background: 'rgba(21,101,168,0.08)', border: '1px solid rgba(21,101,168,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#1565a8', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span>
+          Compressing &amp; uploading file…
+        </div>
+      )}
+
+      {/* ── Success message with compression info ── */}
+      {uploadSuccess && (
+        <div style={{ background: 'rgba(0,168,120,0.1)', border: '1px solid rgba(0,168,120,0.35)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#00856e', fontSize: 12 }}>
+          ✅ <strong>{uploadSuccess.name}</strong> uploaded successfully!
+          {uploadSuccess.wasCompressed && (
+            <span style={{ marginLeft: 6, opacity: 0.85 }}>
+              · Compressed from <strong>{formatSize(uploadSuccess.originalSize)}</strong> → <strong>{formatSize(uploadSuccess.compressedSize)}</strong>
+              {' '}(<strong>{Math.round((1 - uploadSuccess.compressedSize / uploadSuccess.originalSize) * 100)}% smaller</strong>)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ── Error ── */}
       {uploadError && (
         <div style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, color: '#c0392b', fontSize: 12 }}>
@@ -160,7 +263,7 @@ export function FileUploadSection({ patientId, files = [], onUpload, onDelete, o
                     {file.filename || file.name}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                    {formatFileSize(file.size)} · {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString() : 'Just now'} · by {file.uploadedBy || 'staff'}
+                    {formatSize(file.size)} · {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString() : 'Just now'} · by {file.uploadedBy || 'staff'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
