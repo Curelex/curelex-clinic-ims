@@ -7,7 +7,7 @@ import { fetchStockReport, fetchDashboardSummary } from "../services/reportServi
 import { currency } from "../utils/format";
 
 const PERIODS = ["daily", "weekly", "monthly", "yearly"];
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/ims/api/v1";
+const API_BASE = import.meta.env.VITE_IMS_API_URL || "/ims/api/v1";
 
 const ReportsPage = () => {
   const [rows, setRows]       = useState([]);
@@ -30,6 +30,11 @@ const ReportsPage = () => {
   const pdfDownloadUrl = () => {
     const token = localStorage.getItem("ims_token");
     return `${API_BASE}/reports/download-pdf?period=${period}&token=${token}`;
+  };
+
+  const csvDownloadUrl = () => {
+    const token = localStorage.getItem("ims_token");
+    return `${API_BASE}/reports/sales/export.csv?token=${token}`;
   };
 
   return (
@@ -91,7 +96,7 @@ const ReportsPage = () => {
 
           {/* Export CSV */}
           <a
-            href={`${API_BASE}/reports/sales/export.csv`}
+            href={csvDownloadUrl()}
             target="_blank"
             rel="noreferrer"
             className="inline-flex rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
