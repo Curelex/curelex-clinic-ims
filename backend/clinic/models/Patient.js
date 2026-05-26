@@ -5,6 +5,10 @@ const PatientSchema = new mongoose.Schema({
   doctorId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User',   required: true },
   doctorName: { type: String, required: true },
 
+  // ✅ NEW: track which receptionist registered this patient
+  receptionistId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  receptionistName: { type: String, default: '' },
+
   token:    { type: Number, required: true },
   name:     { type: String, required: true },
   age:      { type: String, default: '' },
@@ -29,16 +33,15 @@ const PatientSchema = new mongoose.Schema({
 
   // ── File Uploads (images & PDFs only) ──────────────────────────
   files: [{
-    _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
-    filename: { type: String, required: true },
-    mimeType: { type: String, required: true },  // 'image/jpeg', 'image/png', 'application/pdf', etc.
-    size: { type: Number, required: true },      // in bytes
-    uploadedBy: { type: String, required: true }, // 'doctor' or 'receptionist'
-    data: { type: Buffer, required: true },      // binary file data
+    _id:        { type: mongoose.Schema.Types.ObjectId, auto: true },
+    filename:   { type: String, required: true },
+    mimeType:   { type: String, required: true },
+    size:       { type: Number, required: true },
+    uploadedBy: { type: String, required: true },
+    data:       { type: Buffer, required: true },
     uploadedAt: { type: Date, default: Date.now },
   }],
 }, { timestamps: true });
 
 const Patient = mongoose.model('Patient', PatientSchema);
-
 export default Patient;

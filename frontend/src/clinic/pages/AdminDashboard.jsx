@@ -1452,16 +1452,38 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DROP-IN REPLACEMENT for the AllPatients function in AdminDashboard.jsx
+// Find "export function AllPatients" and replace the entire function with this.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function AllPatients({ patients }) {
-  const [search, setSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState('today');
+  const [search,           setSearch]           = useState('');
+  const [dateFilter,       setDateFilter]       = useState('today');
+  // ✅ NEW: receptionist filter state
+  const [receptionistFilter, setReceptionistFilter] = useState('all');
+
   const todayStr = new Date().toISOString().split('T')[0];
+
+  // ✅ NEW: build unique receptionist list from patients
+  const receptionists = Array.from(
+    new Map(
+      patients
+        .filter((p) => p.receptionistId && p.receptionistName)
+        .map((p) => [String(p.receptionistId), p.receptionistName])
+    ).entries()
+  ).map(([id, name]) => ({ id, name }));
 
   const filtered = patients
     .filter((p) => {
-      const matchDate = dateFilter === 'all' || p.date === todayStr;
-      const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || String(p.token).includes(search);
-      return matchDate && matchSearch;
+      const matchDate        = dateFilter === 'all' || p.date === todayStr;
+      const matchSearch      = !search || p.name.toLowerCase().includes(search.toLowerCase()) || String(p.token).includes(search);
+      // ✅ NEW: receptionist filter logic
+      const matchReceptionist =
+        receptionistFilter === 'all' ||
+        (receptionistFilter === 'admin' && !p.receptionistId) ||
+        String(p.receptionistId) === receptionistFilter;
+      return matchDate && matchSearch && matchReceptionist;
     })
     .sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
@@ -1480,17 +1502,67 @@ export function AllPatients({ patients }) {
         title="All Patients"
         subtitle={`${patients.length} total patients`}
         action={
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or token..." style={{ width: 200 }} />
-            <Select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ width: 130 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or token..."
+              style={{ width: 180 }}
+            />
+
+            {/* ✅ NEW: Receptionist filter dropdown */}
+            <Select
+              value={receptionistFilter}
+              onChange={(e) => setReceptionistFilter(e.target.value)}
+              style={{ width: 170 }}
+            >
+              <option value="all">All Receptionists</option>
+              <option value="admin">Registered by Admin</option>
+              {receptionists.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </Select>
+
+            <Select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              style={{ width: 120 }}
+            >
               <option value="today">Today</option>
               <option value="all">All Time</option>
             </Select>
           </div>
         }
       />
+
+      {/* ✅ NEW: show active receptionist filter badge */}
+      {receptionistFilter !== 'all' && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          marginBottom: 16, padding: '6px 14px',
+          background: 'rgba(21,101,168,0.08)',
+          border: '1px solid rgba(21,101,168,0.25)',
+          borderRadius: 20, fontSize: 13, color: '#1565a8', fontWeight: 600,
+        }}>
+          <span>🏷 Filtering by receptionist:</span>
+          <strong>
+            {receptionistFilter === 'admin'
+              ? 'Admin'
+              : receptionists.find((r) => r.id === receptionistFilter)?.name || receptionistFilter}
+          </strong>
+          <button
+            onClick={() => setReceptionistFilter('all')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontWeight: 700, fontSize: 14, lineHeight: 1, padding: '0 2px' }}
+          >✕</button>
+        </div>
+      )}
+
       {Object.keys(grouped).length === 0 ? (
-        <Card><div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No patients found</div></Card>
+        <Card>
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            No patients found
+          </div>
+        </Card>
       ) : (
         Object.entries(grouped).map(([doctorName, pats]) => (
           <div key={doctorName} style={{ marginBottom: 24 }}>
@@ -1504,13 +1576,14 @@ export function AllPatients({ patients }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface2)' }}>
-                      {['Token','Name','Age','Phone','Symptoms','Paid Rs.','Dues Rs.','Payment','Date','Time','Status'].map((h) => (
+                      {/* ✅ NEW: added Receptionist column */}
+                      {['Token','Name','Age','Phone','Symptoms','Paid Rs.','Dues Rs.','Payment','Date','Time','Receptionist','Status'].map((h) => (
                         <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {pats.sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).map((p) => (
+                    {pats.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((p) => (
                       <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '10px 14px' }}><TokenBadge token={p.token} size="sm" status={p.status} /></td>
                         <td style={{ padding: '10px 14px', fontWeight: 500 }}>{p.name}</td>
@@ -1522,6 +1595,25 @@ export function AllPatients({ patients }) {
                         <td style={{ padding: '10px 14px' }}><PaymentBadge method={p.paymentMethod} /></td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{p.date}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{p.time}</td>
+
+                        {/* ✅ NEW: Receptionist cell */}
+                        <td style={{ padding: '10px 14px' }}>
+                          {p.receptionistName ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              background: 'rgba(21,101,168,0.08)',
+                              color: '#1565a8',
+                              border: '1px solid rgba(21,101,168,0.20)',
+                              borderRadius: 20, padding: '2px 9px',
+                              fontSize: 11, fontWeight: 700,
+                            }}>
+                              📋 {p.receptionistName}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Admin</span>
+                          )}
+                        </td>
+
                         <td style={{ padding: '10px 14px' }}>
                           <Badge color={p.status === 'called' ? 'green' : p.status === 'done' ? 'gray' : 'blue'}>{p.status}</Badge>
                         </td>
