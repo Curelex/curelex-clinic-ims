@@ -44,14 +44,14 @@ function clearAllAuth() {
   localStorage.removeItem('ims_token');
   localStorage.removeItem('ims_sso_token');
   localStorage.removeItem('curelex_activePlan');
-  sessionStorage.removeItem('sso_attempt'); // ✅ ADDED
+  sessionStorage.removeItem('sso_attempt');
 }
 
 export function AppProvider({ children }) {
   const [session, setSessionState] = useState(() => getSession());
 
   const [activePlan, setActivePlanState] = useState(
-    () => normalizePlan(localStorage.getItem('curelex_activePlan'))
+    () => normalizePlan(localStorage.getItem('curelex_activePlan')) // ✅ reads on init
   );
 
   const setActivePlan = useCallback((planKey) => {
@@ -73,7 +73,10 @@ export function AppProvider({ children }) {
     const storedPlan     = normalizePlan(localStorage.getItem('curelex_activePlan'));
     const currentSession = getSession();
 
-    if (currentSession && !storedPlan) {
+    // ✅ FIXED — stored plan turant set karo (receptionist ke liye bhi)
+    if (storedPlan) setActivePlanState(storedPlan);
+
+    if (currentSession) {  // ✅ FIXED — removed !storedPlan condition
       apiGetMyClinic()
         .then((clinic) => {
           if (!clinic) return;
@@ -113,6 +116,12 @@ export function AppProvider({ children }) {
 
   const login = useCallback((sess) => {
     setSession(sess);
+
+    // ✅ FIXED — stored plan turant apply karo (receptionist login ke liye)
+    const storedPlan = normalizePlan(localStorage.getItem('curelex_activePlan'));
+    if (storedPlan) setActivePlanState(storedPlan);
+
+    // Backend se bhi fetch karo (latest plan ke liye)
     apiGetMyClinic()
       .then((clinic) => {
         if (!clinic) return;
@@ -127,7 +136,7 @@ export function AppProvider({ children }) {
   }, [setSession, setActivePlan]);
 
   const logout = useCallback(() => {
-    clearAllAuth(); // ✅ now also clears sso_attempt
+    clearAllAuth();
     setSessionState(null);
     setActivePlanState(null);
   }, []);
