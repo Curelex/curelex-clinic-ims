@@ -23,7 +23,16 @@ import {
   apiDeletePatientFile,
   apiGetPatientHistory,
   apiActivatePlan,
-  apiGetRevenueReport
+  apiGetRevenueReport,
+  // ✅ NEW: Prescription APIs
+  apiCreatePrescription,
+  apiUpdatePrescription,
+  apiGetPatientPrescriptions,
+  apiGetTodayPrescriptions,
+  apiGetPrescriptionsByDate,
+  apiGetPrescriptionAutocomplete,
+  apiMarkPrescriptionDispensed,
+  apiMarkPrescriptionViewed,
 } from '../utils/api';
 
 const AppContext = createContext(null);
@@ -51,7 +60,7 @@ export function AppProvider({ children }) {
   const [session, setSessionState] = useState(() => getSession());
 
   const [activePlan, setActivePlanState] = useState(
-    () => normalizePlan(localStorage.getItem('curelex_activePlan')) // ✅ reads on init
+    () => normalizePlan(localStorage.getItem('curelex_activePlan'))
   );
 
   const setActivePlan = useCallback((planKey) => {
@@ -73,10 +82,9 @@ export function AppProvider({ children }) {
     const storedPlan     = normalizePlan(localStorage.getItem('curelex_activePlan'));
     const currentSession = getSession();
 
-    // ✅ FIXED — stored plan turant set karo (receptionist ke liye bhi)
     if (storedPlan) setActivePlanState(storedPlan);
 
-    if (currentSession) {  // ✅ FIXED — removed !storedPlan condition
+    if (currentSession) {
       apiGetMyClinic()
         .then((clinic) => {
           if (!clinic) return;
@@ -117,11 +125,9 @@ export function AppProvider({ children }) {
   const login = useCallback((sess) => {
     setSession(sess);
 
-    // ✅ FIXED — stored plan turant apply karo (receptionist login ke liye)
     const storedPlan = normalizePlan(localStorage.getItem('curelex_activePlan'));
     if (storedPlan) setActivePlanState(storedPlan);
 
-    // Backend se bhi fetch karo (latest plan ke liye)
     apiGetMyClinic()
       .then((clinic) => {
         if (!clinic) return;
@@ -190,6 +196,32 @@ export function AppProvider({ children }) {
     (from, to) => apiGetRevenueReport(from, to), []
   );
 
+  // ✅ NEW: Prescription callbacks
+  const createPrescription = useCallback(
+    (data) => apiCreatePrescription(data), []
+  );
+  const updatePrescription = useCallback(
+    (id, data) => apiUpdatePrescription(id, data), []
+  );
+  const getPatientPrescriptions = useCallback(
+    (patientId) => apiGetPatientPrescriptions(patientId), []
+  );
+  const getTodayPrescriptions = useCallback(
+    () => apiGetTodayPrescriptions(), []
+  );
+  const getPrescriptionsByDate = useCallback(
+    (date) => apiGetPrescriptionsByDate(date), []
+  );
+  const getPrescriptionAutocomplete = useCallback(
+    () => apiGetPrescriptionAutocomplete(), []
+  );
+  const markPrescriptionDispensed = useCallback(
+    (id) => apiMarkPrescriptionDispensed(id), []
+  );
+  const markPrescriptionViewed = useCallback(
+    (id) => apiMarkPrescriptionViewed(id), []
+  );
+
   return (
     <AppContext.Provider value={{
       session, login, logout,
@@ -199,7 +231,16 @@ export function AppProvider({ children }) {
       updateTokenLimit,
       getPatients, addPatient, updatePatientStatus, updateFollowUp,
       uploadPatientFile, getPatientFiles, downloadPatientFile, deletePatientFile,
-      getPatientHistory, getRevenueReport
+      getPatientHistory, getRevenueReport,
+      // ✅ NEW: Prescriptions
+      createPrescription,
+      updatePrescription,
+      getPatientPrescriptions,
+      getTodayPrescriptions,
+      getPrescriptionsByDate,
+      getPrescriptionAutocomplete,
+      markPrescriptionDispensed,
+      markPrescriptionViewed,
     }}>
       {children}
     </AppContext.Provider>

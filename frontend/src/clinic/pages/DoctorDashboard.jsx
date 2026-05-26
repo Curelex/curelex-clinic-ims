@@ -6,6 +6,7 @@ import {
 import { FileUploadSection } from '../components/FileUpload';
 import { today } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
+import PrescriptionModal from '../components/PrescriptionModal'; // ✅ NEW
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -235,6 +236,8 @@ export default function DoctorDashboard() {
             onGetFiles={getPatientFiles}
             onDownloadFile={downloadPatientFile}
             onDeleteFile={deletePatientFile}
+            docUser={docUser}           // ✅ NEW: pass docUser for prescription modal
+            clinicName={session?.clinicName || ''}  // ✅ NEW
           />
         )}
         {tab === 'stats' && (
@@ -260,7 +263,7 @@ export default function DoctorDashboard() {
 }
 
 /* ── Queue Tab ────────────────────────────────────────────────── */
-function QueueTab({ myPatients, waiting, called, done, currentPatient, dailyTokenLimit, updateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile }) {
+function QueueTab({ myPatients, waiting, called, done, currentPatient, dailyTokenLimit, updateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile, docUser, clinicName }) {
   const limit = dailyTokenLimit;
   return (
     <div>
@@ -311,6 +314,8 @@ function QueueTab({ myPatients, waiting, called, done, currentPatient, dailyToke
                 onGetFiles={onGetFiles}
                 onDownloadFile={onDownloadFile}
                 onDeleteFile={onDeleteFile}
+                docUser={docUser}       // ✅ NEW
+                clinicName={clinicName} // ✅ NEW
               />
             ))}
           </div>
@@ -364,15 +369,22 @@ function CurrentPatientCard({ patient: p, onUpdateStatus }) {
 }
 
 /* ── Token Row ────────────────────────────────────────────────── */
-function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile }) {
+function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUploadFile, onGetFiles, onDownloadFile, onDeleteFile, docUser, clinicName }) {
   const pid = p._id || p.id;
-  const [showFollowUp, setShowFollowUp] = useState(false);
-  const [showFiles,    setShowFiles]    = useState(false);
-  const [files,        setFiles]        = useState([]);
-  const [loadingFiles, setLoadingFiles] = useState(false);
-  const [pastVisits,   setPastVisits]   = useState([]);
+  const [showFollowUp,    setShowFollowUp]    = useState(false);
+  const [showFiles,       setShowFiles]       = useState(false);
+  const [showRx,          setShowRx]          = useState(false);   // ✅ NEW: prescription modal
+  const [rxExists,        setRxExists]        = useState(false);   // ✅ NEW: has prescription been saved?
+  const [files,           setFiles]           = useState([]);
+  const [loadingFiles,    setLoadingFiles]    = useState(false);
+  const [pastVisits,      setPastVisits]      = useState([]);
   const bgMap = { waiting: 'var(--surface)', called: '#fefce8', done: 'var(--surface2)' };
   const days  = daysUntil(p.followUpDate);
+
+  // ✅ NEW: listen for prescription saved event
+  function handlePrescriptionSaved() {
+    setRxExists(true);
+  }
 
   // Load files when panel opens
   useEffect(() => {
@@ -382,12 +394,9 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
   async function loadFiles() {
     setLoadingFiles(true);
     try {
-      // ── 1. Today's files ──────────────────────────────────────
       const result = await onGetFiles(pid);
-      // result is already an array from apiGetPatientFiles
       setFiles(Array.isArray(result) ? result : (result?.files || []));
 
-      // ── 2. Past visit files (by phone number) ─────────────────
       if (p.phone) {
         try {
           const token = localStorage.getItem('clinic_token');
@@ -416,10 +425,8 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
     }
   }
 
-  // ── FIX: removed setTimeout race condition ────────────────────
   async function handleUploadFile(patientId, file) {
     await onUploadFile(patientId, file);
-    // Re-fetch immediately after upload completes (no setTimeout)
     const result = await onGetFiles(pid);
     setFiles(Array.isArray(result) ? result : (result?.files || []));
   }
@@ -436,6 +443,7 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
   }
 
   const totalFileCount = files.length + pastVisits.reduce((s, v) => s + v.files.length, 0);
+  const authToken = localStorage.getItem('clinic_token');
 
   return (
     <div style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
@@ -454,6 +462,12 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
                 📅 Follow-up: {p.followUpDate} ({followUpBadgeStyle(days).label})
               </span>
             )}
+            {/* ✅ NEW: Rx saved indicator */}
+            {rxExists && (
+              <span style={{ fontSize: 11, background: 'rgba(0,184,148,0.1)', color: '#00a878', border: '1px solid rgba(0,184,148,0.3)', borderRadius: 20, padding: '1px 8px', fontWeight: 700 }}>
+                ✅ Rx Saved
+              </span>
+            )}
           </div>
         </div>
         <div className="token-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -462,6 +476,22 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
           </Badge>
           {p.status === 'waiting' && <Btn size="sm" variant="outline"  onClick={() => onUpdateStatus(pid, 'called')}>Call</Btn>}
           {p.status === 'called'  && <Btn size="sm" variant="success"  onClick={() => onUpdateStatus(pid, 'done')}>Done</Btn>}
+
+          {/* ✅ NEW: Prescription (Rx) button */}
+          <button
+            onClick={() => setShowRx((v) => !v)}
+            title="Write prescription"
+            style={{
+              background: rxExists ? 'rgba(0,184,148,0.12)' : showRx ? 'rgba(124,58,237,0.15)' : 'none',
+              border: `1px solid ${rxExists ? 'rgba(0,184,148,0.4)' : '#c5d5e8'}`,
+              borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontSize: 13,
+              color: rxExists ? '#00a878' : '#7c3aed', fontWeight: 700, fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            📝 {rxExists ? 'Edit Rx' : 'Add Rx'}
+          </button>
+
           <button
             onClick={() => setShowFollowUp((v) => !v)}
             title="Set follow-up date"
@@ -479,6 +509,18 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
         </div>
       </div>
 
+      {/* ✅ NEW: Prescription Modal */}
+      {showRx && (
+        <PrescriptionModal
+          patient={p}
+          doctorUser={docUser}
+          clinicName={clinicName}
+          token={authToken}
+          onClose={() => setShowRx(false)}
+          onSaved={handlePrescriptionSaved}
+        />
+      )}
+
       {/* ── Follow-up editor ── */}
       {showFollowUp && (
         <FollowUpInlineEditor
@@ -495,7 +537,6 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
             <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>⏳ Loading files…</div>
           ) : (
             <>
-              {/* Today's files — full upload/delete/download */}
               <FileUploadSection
                 patientId={pid}
                 files={files}
@@ -505,7 +546,6 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
                 disabled={loadingFiles}
               />
 
-              {/* Past visit files — read-only */}
               {pastVisits.length > 0 && (
                 <div style={{ marginTop: 16 }}>
                   <div style={{
@@ -551,7 +591,6 @@ function TokenRow({ patient: p, isLast, onUpdateStatus, onUpdateFollowUp, onUplo
                 </div>
               )}
 
-              {/* Empty past visits state */}
               {!loadingFiles && pastVisits.length === 0 && p.phone && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>📁</span> No files from previous visits.
