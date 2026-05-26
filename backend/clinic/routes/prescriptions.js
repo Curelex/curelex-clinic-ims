@@ -35,11 +35,11 @@ async function updateDoctorDictionary(doctorId, clinicId, medicines = [], tests 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/prescriptions
-// Doctor creates a new prescription for a patient
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/', auth, async (req, res) => {
   try {
-    const { clinicId, _id: doctorId } = req.user;
+    // ✅ FIXED: use `id` not `_id` — JWT is signed with `id`
+    const { clinicId, id: doctorId } = req.user;
 
     const {
       patientId,
@@ -54,7 +54,6 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'patientId is required' });
     }
 
-    // Fetch patient + clinic for denormalized fields
     const [patient, clinic] = await Promise.all([
       Patient.findOne({ _id: patientId, clinicId }).lean(),
       Clinic.findById(clinicId).lean(),
@@ -84,7 +83,6 @@ router.post('/', auth, async (req, res) => {
       followUpDate:     followUpDate             || '',
     });
 
-    // Auto-save medicine & test names to doctor's dictionary
     await updateDoctorDictionary(
       doctorId,
       clinicId,
@@ -101,7 +99,6 @@ router.post('/', auth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/prescriptions/patient/:patientId
-// Get prescription(s) for a specific patient visit
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/patient/:patientId', auth, async (req, res) => {
   try {
@@ -121,13 +118,11 @@ router.get('/patient/:patientId', auth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/prescriptions/today
-// Get ALL prescriptions for the clinic today — used by receptionist & pharmacist
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/today', auth, async (req, res) => {
   try {
     const { clinicId } = req.user;
 
-    // IST today
     const now     = new Date();
     const istDate = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
     const today   = istDate.toISOString().split('T')[0];
@@ -144,7 +139,6 @@ router.get('/today', auth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/prescriptions/date/:date
-// Get all prescriptions for a specific date (YYYY-MM-DD)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/date/:date', auth, async (req, res) => {
   try {
@@ -164,22 +158,22 @@ router.get('/date/:date', auth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/prescriptions/:id
-// Doctor updates a prescription
 // ─────────────────────────────────────────────────────────────────────────────
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { clinicId, _id: doctorId } = req.user;
+    // ✅ FIXED: use `id` not `_id`
+    const { clinicId, id: doctorId } = req.user;
     const { diagnosis, medicines, tests, notes, followUpDate } = req.body;
 
     const prescription = await Prescription.findOneAndUpdate(
       { _id: req.params.id, clinicId, doctorId },
       {
         $set: {
-          diagnosis:   diagnosis   || '',
-          medicines:   Array.isArray(medicines) ? medicines : [],
-          tests:       Array.isArray(tests)     ? tests     : [],
-          notes:       notes                    || '',
-          followUpDate: followUpDate            || '',
+          diagnosis:    diagnosis   || '',
+          medicines:    Array.isArray(medicines) ? medicines : [],
+          tests:        Array.isArray(tests)     ? tests     : [],
+          notes:        notes                    || '',
+          followUpDate: followUpDate             || '',
         },
       },
       { new: true }
@@ -189,7 +183,6 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Prescription not found' });
     }
 
-    // Update dictionary with any new names
     await updateDoctorDictionary(
       doctorId,
       clinicId,
@@ -205,7 +198,6 @@ router.put('/:id', auth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/prescriptions/:id/dispense
-// Pharmacist marks prescription as dispensed
 // ─────────────────────────────────────────────────────────────────────────────
 router.patch('/:id/dispense', auth, async (req, res) => {
   try {
@@ -228,7 +220,6 @@ router.patch('/:id/dispense', auth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/prescriptions/:id/viewed
-// Pharmacist marks prescription as viewed
 // ─────────────────────────────────────────────────────────────────────────────
 router.patch('/:id/viewed', auth, async (req, res) => {
   try {
@@ -247,11 +238,11 @@ router.patch('/:id/viewed', auth, async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/prescriptions/autocomplete
-// Returns doctor's saved medicine & test names
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/autocomplete', auth, async (req, res) => {
   try {
-    const { _id: doctorId } = req.user;
+    // ✅ FIXED: use `id` not `_id`
+    const { id: doctorId } = req.user;
     const list = await DoctorMedicineList.findOne({ doctorId }).lean();
     return res.json({
       success:   true,

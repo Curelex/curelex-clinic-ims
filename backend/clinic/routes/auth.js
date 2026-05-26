@@ -78,7 +78,15 @@ router.post('/login', async (req, res) => {
       const match = await bcrypt.compare(password, user.password);
       if (!match) return res.status(401).json({ message: `Invalid ${role} credentials.` });
 
-      const token = sign({ id: user._id, role, clinicId: user.clinicId });
+      // ✅ FIXED: added name and specialist to JWT so prescription PDF shows correctly
+      const token = sign({
+        id:         user._id,
+        role,
+        clinicId:   user.clinicId,
+        name:       user.name       || '',
+        specialist: user.specialist || '',
+      });
+
       const responseData = { token, role, clinicId: user.clinicId, user };
 
       if (role === 'pharmacist') {
@@ -101,8 +109,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ✅ NEW — POST /api/clinic/auth/refresh-sso
-// Generates a fresh SSO token for already-logged-in pharmacist
+// POST /api/clinic/auth/refresh-sso
 router.post('/refresh-sso', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
