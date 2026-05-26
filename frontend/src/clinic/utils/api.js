@@ -656,3 +656,52 @@ export async function apiGetQueueStatus(sessionToken) {
 export async function apiGetRevenueReport(from, to) {
   return request(`/clinics/revenue?from=${from}&to=${to}`);
 }
+
+
+
+
+
+// ── PRESCRIPTION API ──────────────────────────────────────────────────────────
+// Add these functions to the END of your existing api.js file
+
+export async function apiCreatePrescription(prescriptionData) {
+  return request('/prescriptions', {
+    method: 'POST',
+    body: JSON.stringify(prescriptionData),
+  });
+}
+
+export async function apiUpdatePrescription(prescriptionId, prescriptionData) {
+  return request(`/prescriptions/${prescriptionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(prescriptionData),
+  });
+}
+
+export async function apiGetPatientPrescriptions(patientId) {
+  return request(`/prescriptions/patient/${patientId}`);
+}
+
+export async function apiGetTodayPrescriptions() {
+  return request('/prescriptions/today');
+}
+
+export async function apiGetPrescriptionsByDate(date) {
+  return request(`/prescriptions/date/${date}`);
+}
+
+export async function apiGetPrescriptionAutocomplete() {
+  return request('/prescriptions/autocomplete');
+}
+
+export async function apiMarkPrescriptionDispensed(prescriptionId) {
+  return request(`/prescriptions/${prescriptionId}/dispense`, {
+    method: 'PATCH',
+  });
+}
+
+export async function apiMarkPrescriptionViewed(prescriptionId) {
+  return request(`/prescriptions/${prescriptionId}/viewed`, {
+    method: 'PATCH',
+  });
+}
