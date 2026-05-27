@@ -3,21 +3,49 @@ import {
   DashboardLayout, Card, Stat, Btn, Badge, Input, Select,
   Modal, Alert, SectionHeader, Empty,
 } from '../components/UI';
-import { loadClinics, saveClinics, genId, today } from '../utils/helpers';
+import { today } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
+
+const API = '/api/superadmin';
+
+async function apiFetch(path, options = {}) {
+  const token = localStorage.getItem('clinic_token') || localStorage.getItem('token');
+  const res = await fetch(`${API}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Request failed');
+  }
+  return res.json();
+}
 
 export default function SuperAdminDashboard() {
   const { logout } = useApp();
   const [tab, setTab] = useState('overview');
   const [clinics, setClinics] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [selectedClinic, setSelectedClinic] = useState(null); // for clinic detail modal
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  function reload() {
-    setClinics(loadClinics());
+  async function reload() {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await apiFetch('/clinics');
+      setClinics(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch clinics');
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { reload(); }, [tab]);
+  useEffect(() => { reload(); }, []);
 
   const totalDoctors = clinics.reduce((s, c) => s + (c.doctors?.length || 0), 0);
   const totalPatients = clinics.reduce((s, c) => s + (c.patients?.length || 0), 0);
@@ -43,10 +71,24 @@ export default function SuperAdminDashboard() {
       userRole="Super Admin"
       accent="#1e293b"
     >
-      {tab === 'overview' && <OverviewTab clinics={clinics} today={todayStr} totalDoctors={totalDoctors} totalPatients={totalPatients} todayPatients={todayPatients} onViewClinic={(c) => { setSelectedClinic(c); setTab('clinics'); }} />}
-      {tab === 'clinics' && <ClinicsTab clinics={clinics} reload={reload} showAdd={showAdd} setShowAdd={setShowAdd} />}
-      {tab === 'patients' && <AllPatientsTab clinics={clinics} />}
-      {tab === 'reports' && <ReportsTab clinics={clinics} />}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+          Loading clinics...
+        </div>
+      )}
+      {error && (
+        <Alert type="error" style={{ marginBottom: 16 }}>
+          {error} — <Btn size="sm" variant="outline" onClick={reload}>Retry</Btn>
+        </Alert>
+      )}
+      {!loading && !error && (
+        <>
+          {tab === 'overview' && <OverviewTab clinics={clinics} today={todayStr} totalDoctors={totalDoctors} totalPatients={totalPatients} todayPatients={todayPatients} />}
+          {tab === 'clinics' && <ClinicsTab clinics={clinics} reload={reload} />}
+          {tab === 'patients' && <AllPatientsTab clinics={clinics} />}
+          {tab === 'reports' && <ReportsTab clinics={clinics} />}
+        </>
+      )}
     </DashboardLayout>
   );
 }
@@ -63,7 +105,6 @@ function OverviewTab({ clinics, today, totalDoctors, totalPatients, todayPatient
         <Stat label="Today's Tokens" value={todayPatients} icon="🎫" color="var(--success)" />
       </div>
 
-      {/* Clinic cards */}
       <h3 style={{ fontSize: 17, marginBottom: 14 }}>Registered Clinics</h3>
       {clinics.length === 0 ? (
         <Empty icon="🏥" title="No clinics yet" desc="Clinics register themselves from the landing page." />
@@ -72,7 +113,7 @@ function OverviewTab({ clinics, today, totalDoctors, totalPatients, todayPatient
           {clinics.map((c) => {
             const todayCount = (c.patients || []).filter((p) => p.date === today).length;
             return (
-              <Card key={c.id}>
+              <Card key={c._id}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: '#e8f2fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏥</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -101,12 +142,19 @@ function OverviewTab({ clinics, today, totalDoctors, totalPatients, todayPatient
 /* ── Clinics Tab ─────────────────────────────────────────────── */
 function ClinicsTab({ clinics, reload }) {
   const [selected, setSelected] = useState(null);
+  const [deleting, setDeleting] = useState('');
 
-  function deleteClinic(id) {
+  async function deleteClinic(id) {
     if (!window.confirm('Delete this clinic and ALL its data?')) return;
-    const all = loadClinics().filter((c) => c.id !== id);
-    saveClinics(all);
-    reload();
+    setDeleting(id);
+    try {
+      await apiFetch(`/clinics/${id}`, { method: 'DELETE' });
+      reload();
+    } catch (err) {
+      alert('Delete failed: ' + err.message);
+    } finally {
+      setDeleting('');
+    }
   }
 
   return (
@@ -121,9 +169,8 @@ function ClinicsTab({ clinics, reload }) {
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
           {clinics.map((c) => (
-            <Card key={c.id} noPad>
+            <Card key={c._id} noPad>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', flexWrap: 'wrap' }}>
-                {/* Info */}
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: '#e8f2fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏥</div>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</div>
@@ -131,16 +178,17 @@ function ClinicsTab({ clinics, reload }) {
                     {c.city} · {c.email} · Admin: {c.owner}
                   </div>
                 </div>
-                {/* Stats */}
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <Badge color="blue">👨‍⚕️ {c.doctors?.length || 0} Doctors</Badge>
                   <Badge color="teal">📋 {c.receptionists?.length || 0} Receptionists</Badge>
                   <Badge color="green">👥 {c.patients?.length || 0} Patients</Badge>
+                  {c.plan && <Badge color="purple">📦 {c.plan}</Badge>}
                 </div>
-                {/* Actions */}
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                   <Btn size="sm" variant="outline" onClick={() => setSelected(c)}>View Details</Btn>
-                  <Btn size="sm" variant="danger" onClick={() => deleteClinic(c.id)}>Delete</Btn>
+                  <Btn size="sm" variant="danger" onClick={() => deleteClinic(c._id)} disabled={deleting === c._id}>
+                    {deleting === c._id ? 'Deleting...' : 'Delete'}
+                  </Btn>
                 </div>
               </div>
             </Card>
@@ -155,21 +203,54 @@ function ClinicsTab({ clinics, reload }) {
   );
 }
 
-/* ── Clinic Detail Modal (super admin can see all staff) ────── */
+/* ── Clinic Detail Modal ────────────────────────────────────── */
 function ClinicDetailModal({ clinic, onClose }) {
   const [c, setC] = useState(clinic);
-
-  function reload() {
-    const fresh = loadClinics().find((x) => x.id === clinic.id);
-    if (fresh) setC(fresh);
-  }
-
+  const [planLoading, setPlanLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(clinic.plan || '');
   const todayStr = today();
   const todayQ = (c.patients || []).filter((p) => p.date === todayStr);
+
+  async function updatePlan() {
+    if (!selectedPlan) return;
+    setPlanLoading(true);
+    try {
+      const updated = await apiFetch(`/clinics/${c._id}/plan`, {
+        method: 'PATCH',
+        body: JSON.stringify({ plan: selectedPlan }),
+      });
+      setC((prev) => ({ ...prev, ...updated }));
+      alert('Plan updated successfully!');
+    } catch (err) {
+      alert('Failed to update plan: ' + err.message);
+    } finally {
+      setPlanLoading(false);
+    }
+  }
 
   return (
     <Modal title={`${c.name} — Details`} onClose={onClose} width={700}>
       <div style={{ display: 'grid', gap: 20 }}>
+
+        {/* Plan Management */}
+        <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '14px 16px' }}>
+          <h3 style={{ fontSize: 15, marginBottom: 10 }}>📦 Subscription Plan</h3>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Select value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)} style={{ flex: 1, minWidth: 140 }}>
+              <option value="">Select plan</option>
+              <option value="lite">Lite</option>
+              <option value="plus">Plus</option>
+              <option value="pro">Pro</option>
+            </Select>
+            <Btn size="sm" onClick={updatePlan} disabled={planLoading}>
+              {planLoading ? 'Saving...' : 'Update Plan'}
+            </Btn>
+            {c.planExpiresAt && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Expires: {c.planExpiresAt}</span>
+            )}
+          </div>
+        </div>
+
         {/* Doctors */}
         <div>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>👨‍⚕️ Doctors ({c.doctors?.length || 0})</h3>
@@ -178,13 +259,13 @@ function ClinicDetailModal({ clinic, onClose }) {
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {c.doctors.map((d) => (
-                <div key={d.id} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div key={d._id} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div>
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</span>
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>{d.specialist}</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Login: <strong>{d.email}</strong> / <strong>{d.password}</strong>
+                    Email: <strong>{d.email}</strong>
                   </div>
                 </div>
               ))}
@@ -200,10 +281,10 @@ function ClinicDetailModal({ clinic, onClose }) {
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {c.receptionists.map((r) => (
-                <div key={r.id} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div key={r._id} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>{r.name}</span>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Login: <strong>{r.email}</strong> / <strong>{r.password}</strong>
+                    Email: <strong>{r.email}</strong>
                   </div>
                 </div>
               ))}
@@ -228,7 +309,7 @@ function ClinicDetailModal({ clinic, onClose }) {
                 </thead>
                 <tbody>
                   {todayQ.sort((a, b) => a.token - b.token).map((p) => (
-                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '8px 12px' }}><span style={{ background: 'var(--primary)', color: '#fff', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>#{p.token}</span></td>
                       <td style={{ padding: '8px 12px', fontWeight: 500 }}>{p.name}</td>
                       <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{p.doctorName}</td>
@@ -256,10 +337,10 @@ function AllPatientsTab({ clinics }) {
   const filtered = allPatients.filter(
     (p) =>
       !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.clinicName.toLowerCase().includes(search.toLowerCase())
+      p.name?.toLowerCase().includes(search.toLowerCase()) ||
+      p.clinicName?.toLowerCase().includes(search.toLowerCase())
   ).sort((a, b) => {
-    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    if (a.date !== b.date) return b.date?.localeCompare(a.date);
     return b.token - a.token;
   });
 
@@ -286,7 +367,7 @@ function AllPatientsTab({ clinics }) {
               {filtered.length === 0 ? (
                 <tr><td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No patients found</td></tr>
               ) : filtered.map((p) => (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '10px 14px' }}><span style={{ background: 'var(--primary)', color: '#fff', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>#{p.token}</span></td>
                   <td style={{ padding: '10px 14px', fontWeight: 500 }}>{p.name}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{p.clinicName}</td>
@@ -311,38 +392,45 @@ function ReportsTab({ clinics }) {
   return (
     <div>
       <SectionHeader title="Platform Reports" subtitle="Summary across all clinics" />
-      <div style={{ display: 'grid', gap: 16 }}>
-        {clinics.map((c) => {
-          const todayP = (c.patients || []).filter((p) => p.date === todayStr);
-          const totalRev = todayP.reduce((s, p) => s + (p.paid || 0), 0);
-          const totalDues = todayP.reduce((s, p) => s + (p.dues || 0), 0);
-          return (
-            <Card key={c.id}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{c.city} · {c.owner}</div>
-                </div>
-                <Badge color="blue">Since {c.createdAt}</Badge>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12 }}>
-                {[
-                  { l: "Today's Patients", v: todayP.length, col: 'var(--primary)' },
-                  { l: "Today's Revenue", v: `Rs.${totalRev.toLocaleString()}`, col: 'var(--success)' },
-                  { l: "Today's Dues", v: `Rs.${totalDues.toLocaleString()}`, col: 'var(--danger)' },
-                  { l: 'Total All-time', v: c.patients?.length || 0, col: '#7c3aed' },
-                  { l: 'Doctors', v: c.doctors?.length || 0, col: 'var(--accent)' },
-                ].map((s) => (
-                  <div key={s.l} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px' }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{s.l}</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: s.col }}>{s.v}</div>
+      {clinics.length === 0 ? (
+        <Empty icon="📈" title="No data yet" desc="Register clinics to see reports." />
+      ) : (
+        <div style={{ display: 'grid', gap: 16 }}>
+          {clinics.map((c) => {
+            const todayP = (c.patients || []).filter((p) => p.date === todayStr);
+            const totalRev = todayP.reduce((s, p) => s + (p.paid || 0), 0);
+            const totalDues = todayP.reduce((s, p) => s + (p.dues || 0), 0);
+            return (
+              <Card key={c._id}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{c.city} · {c.owner}</div>
                   </div>
-                ))}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {c.plan && <Badge color="purple">📦 {c.plan}</Badge>}
+                    <Badge color="blue">Since {c.createdAt}</Badge>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12 }}>
+                  {[
+                    { l: "Today's Patients", v: todayP.length, col: 'var(--primary)' },
+                    { l: "Today's Revenue", v: `Rs.${totalRev.toLocaleString()}`, col: 'var(--success)' },
+                    { l: "Today's Dues", v: `Rs.${totalDues.toLocaleString()}`, col: 'var(--danger)' },
+                    { l: 'Total All-time', v: c.patients?.length || 0, col: '#7c3aed' },
+                    { l: 'Doctors', v: c.doctors?.length || 0, col: 'var(--accent)' },
+                  ].map((s) => (
+                    <div key={s.l} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px' }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{s.l}</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: s.col }}>{s.v}</div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
