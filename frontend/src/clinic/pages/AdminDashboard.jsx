@@ -1458,14 +1458,13 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AllPatients({ patients }) {
-  const [search,           setSearch]           = useState('');
-  const [dateFilter,       setDateFilter]       = useState('today');
-  // ✅ NEW: receptionist filter state
+  const [search,             setSearch]             = useState('');
+  const [dateFilter,         setDateFilter]         = useState('today');
   const [receptionistFilter, setReceptionistFilter] = useState('all');
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // ✅ NEW: build unique receptionist list from patients
+  // Build unique receptionist list from patients
   const receptionists = Array.from(
     new Map(
       patients
@@ -1476,9 +1475,8 @@ export function AllPatients({ patients }) {
 
   const filtered = patients
     .filter((p) => {
-      const matchDate        = dateFilter === 'all' || p.date === todayStr;
-      const matchSearch      = !search || p.name.toLowerCase().includes(search.toLowerCase()) || String(p.token).includes(search);
-      // ✅ NEW: receptionist filter logic
+      const matchDate         = dateFilter === 'all' || p.date === todayStr;
+      const matchSearch       = !search || p.name.toLowerCase().includes(search.toLowerCase()) || String(p.token).includes(search);
       const matchReceptionist =
         receptionistFilter === 'all' ||
         (receptionistFilter === 'admin' && !p.receptionistId) ||
@@ -1498,65 +1496,86 @@ export function AllPatients({ patients }) {
 
   return (
     <div>
-      <SectionHeader
-        title="All Patients"
-        subtitle={`${patients.length} total patients`}
-        action={
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name or token..."
-              style={{ width: 180 }}
-            />
-
-            {/* ✅ NEW: Receptionist filter dropdown */}
-            <Select
-              value={receptionistFilter}
-              onChange={(e) => setReceptionistFilter(e.target.value)}
-              style={{ width: 170 }}
-            >
-              <option value="all">All Receptionists</option>
-              <option value="admin">Registered by Admin</option>
-              {receptionists.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </Select>
-
-            <Select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              style={{ width: 120 }}
-            >
-              <option value="today">Today</option>
-              <option value="all">All Time</option>
-            </Select>
-          </div>
-        }
-      />
-
-      {/* ✅ NEW: show active receptionist filter badge */}
-      {receptionistFilter !== 'all' && (
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          marginBottom: 16, padding: '6px 14px',
-          background: 'rgba(21,101,168,0.08)',
-          border: '1px solid rgba(21,101,168,0.25)',
-          borderRadius: 20, fontSize: 13, color: '#1565a8', fontWeight: 600,
-        }}>
-          <span>🏷 Filtering by receptionist:</span>
-          <strong>
-            {receptionistFilter === 'admin'
-              ? 'Admin'
-              : receptionists.find((r) => r.id === receptionistFilter)?.name || receptionistFilter}
-          </strong>
-          <button
-            onClick={() => setReceptionistFilter('all')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontWeight: 700, fontSize: 14, lineHeight: 1, padding: '0 2px' }}
-          >✕</button>
+      {/* ── Header row ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 2 }}>All Patients</h2>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{patients.length} total patients</div>
         </div>
-      )}
+      </div>
 
+      {/* ── Filters row — always on its own line so nothing overflows ── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        {/* Search */}
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name or token…"
+          style={{
+            padding: '8px 12px', borderRadius: 9,
+            border: '1.5px solid #d0dce8', fontSize: 13,
+            fontFamily: 'inherit', outline: 'none',
+            color: '#0a3d62', background: '#fff',
+            minWidth: 180, flex: '1 1 180px',
+          }}
+        />
+
+        {/* Receptionist filter */}
+        <select
+          value={receptionistFilter}
+          onChange={(e) => setReceptionistFilter(e.target.value)}
+          style={{
+            padding: '8px 12px', borderRadius: 9,
+            border: receptionistFilter !== 'all' ? '1.5px solid #1565a8' : '1.5px solid #d0dce8',
+            fontSize: 13, fontFamily: 'inherit', outline: 'none',
+            color: receptionistFilter !== 'all' ? '#1565a8' : '#0a3d62',
+            background: receptionistFilter !== 'all' ? 'rgba(21,101,168,0.06)' : '#fff',
+            cursor: 'pointer', fontWeight: receptionistFilter !== 'all' ? 700 : 400,
+            minWidth: 170,
+          }}
+        >
+          <option value="all">📋 All Receptionists</option>
+          <option value="admin">Registered by Admin</option>
+          {receptionists.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+
+        {/* Date filter */}
+        <select
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          style={{
+            padding: '8px 12px', borderRadius: 9,
+            border: '1.5px solid #d0dce8', fontSize: 13,
+            fontFamily: 'inherit', outline: 'none',
+            color: '#0a3d62', background: '#fff',
+            cursor: 'pointer', minWidth: 110,
+          }}
+        >
+          <option value="today">Today</option>
+          <option value="all">All Time</option>
+        </select>
+
+        {/* Clear receptionist filter badge */}
+        {receptionistFilter !== 'all' && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px',
+            background: 'rgba(21,101,168,0.08)',
+            border: '1px solid rgba(21,101,168,0.25)',
+            borderRadius: 20, fontSize: 12, color: '#1565a8', fontWeight: 600,
+          }}>
+            🏷 {receptionistFilter === 'admin' ? 'Admin' : receptionists.find((r) => r.id === receptionistFilter)?.name}
+            <button
+              onClick={() => setReceptionistFilter('all')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontWeight: 700, fontSize: 14, lineHeight: 1, padding: 0 }}
+            >✕</button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Table ── */}
       {Object.keys(grouped).length === 0 ? (
         <Card>
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -1576,7 +1595,6 @@ export function AllPatients({ patients }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface2)' }}>
-                      {/* ✅ NEW: added Receptionist column */}
                       {['Token','Name','Age','Phone','Symptoms','Paid Rs.','Dues Rs.','Payment','Date','Time','Receptionist','Status'].map((h) => (
                         <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
                       ))}
@@ -1595,17 +1613,13 @@ export function AllPatients({ patients }) {
                         <td style={{ padding: '10px 14px' }}><PaymentBadge method={p.paymentMethod} /></td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{p.date}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{p.time}</td>
-
-                        {/* ✅ NEW: Receptionist cell */}
                         <td style={{ padding: '10px 14px' }}>
                           {p.receptionistName ? (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: 4,
-                              background: 'rgba(21,101,168,0.08)',
-                              color: '#1565a8',
+                              background: 'rgba(21,101,168,0.08)', color: '#1565a8',
                               border: '1px solid rgba(21,101,168,0.20)',
-                              borderRadius: 20, padding: '2px 9px',
-                              fontSize: 11, fontWeight: 700,
+                              borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 700,
                             }}>
                               📋 {p.receptionistName}
                             </span>
@@ -1613,7 +1627,6 @@ export function AllPatients({ patients }) {
                             <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Admin</span>
                           )}
                         </td>
-
                         <td style={{ padding: '10px 14px' }}>
                           <Badge color={p.status === 'called' ? 'green' : p.status === 'done' ? 'gray' : 'blue'}>{p.status}</Badge>
                         </td>
