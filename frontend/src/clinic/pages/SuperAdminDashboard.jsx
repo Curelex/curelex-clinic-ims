@@ -6,7 +6,7 @@ import {
 import { today } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 
-const API = '/api/superadmin';
+const API = '/clinic/superadmin';
 
 async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('clinic_token') || localStorage.getItem('token');
