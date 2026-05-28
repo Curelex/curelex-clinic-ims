@@ -845,76 +845,50 @@ setLoading(true);
   }
 
   async function submitContactForm() {
-    const {
-      name,
-      email,
-      phone,
-      message,
-    } = contactForm;
-  
-    if (
-      !name ||
-      !email ||
-      !phone ||
-      !message
-    ) {
-      return res.status(400).json({
-        message:
-          "All fields are required",
-      });
-    }
-  
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_CLINIC_API_URL}/contact`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            name,
-            email,
-            phone,
-            message,
-          }),
-        }
-      );
-  
-      const data =
-        await response.json();
-  
-      if (response.ok) {
-        setContactSuccess(true);
-  
-        setContactForm({
-          name: "",
-          email: "",
-          phone: "",
-          message: "",
-        });
-  
-        showToast(
-          "Message sent successfully! ✉️",
-          "success"
-        );
-      } else {
-        showToast(
-          data.message ||
-            "Failed to send message",
-          "error"
-        );
-      }
-    } catch (err) {
-      console.error(err);
-  
-      showToast(
-        "Server error. Please try again.",
-        "error"
-      );
-    }
+  const { name, email, phone, message } = contactForm;
+
+  // ✅ Frontend validation (not res.status!)
+  if (!name || !email || !phone || !message) {
+    setContactAlert('error');
+    return;
   }
+
+  if (!isValidEmail(email)) {
+    showToast('Please enter a valid email address.', 'error');
+    return;
+  }
+
+  if (phone.length !== 10) {
+    showToast('Phone number must be 10 digits.', 'error');
+    return;
+  }
+
+  setContactAlert('');
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_CLINIC_API_URL}/contact`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, message }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.ok) {
+      setContactSuccess(true);
+      setContactForm({ name: '', email: '', phone: '', message: '' });
+      showToast('Message sent successfully! ✉️', 'success');
+    } else {
+      showToast(data.message || 'Failed to send message.', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Server error. Please try again.', 'error');
+  }
+}
 
   useEffect(() => {
     if (mode) {
@@ -1305,10 +1279,10 @@ setLoading(true);
                 <div style={{ fontFamily: "'Sora', sans-serif", fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Send a Message</div>
 
                 {contactSuccess && (
-                  <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(0,184,148,.1)', border: '1px solid rgba(0,184,148,.3)', color: 'var(--teal)', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    ✅ Message sent! We'll reply within 24 hours.
-                  </div>
-                )}
+  <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(0,184,148,.1)', border: '1px solid rgba(0,184,148,.3)', color: 'var(--teal)', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+    ✅ Message sent! Our team will contact you shortly.
+  </div>
+)}
                 {contactAlert === 'error' && (
                   <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(231,76,60,.08)', border: '1px solid rgba(231,76,60,.25)', color: '#c0392b', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                     ⚠️ Please fill all required fields.

@@ -6,7 +6,7 @@ import {
 import { today } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 
-const API = '/clinic/superadmin';
+const API = '/api/superadmin';
 
 async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('clinic_token') || localStorage.getItem('token');
@@ -55,10 +55,11 @@ export default function SuperAdminDashboard() {
   );
 
   const navItems = [
-    { icon: '📊', label: 'Overview', active: tab === 'overview', onClick: () => setTab('overview') },
-    { icon: '🏥', label: 'All Clinics', active: tab === 'clinics', onClick: () => setTab('clinics'), badge: clinics.length },
-    { icon: '👥', label: 'All Patients', active: tab === 'patients', onClick: () => setTab('patients') },
-    { icon: '📈', label: 'Reports', active: tab === 'reports', onClick: () => setTab('reports') },
+    { icon: '📊', label: 'Overview',         active: tab === 'overview',  onClick: () => setTab('overview') },
+    { icon: '🏥', label: 'All Clinics',      active: tab === 'clinics',   onClick: () => setTab('clinics'),  badge: clinics.length },
+    { icon: '👥', label: 'All Patients',     active: tab === 'patients',  onClick: () => setTab('patients') },
+    { icon: '📈', label: 'Reports',          active: tab === 'reports',   onClick: () => setTab('reports') },
+    { icon: '📬', label: 'Contact Queries',  active: tab === 'queries',   onClick: () => setTab('queries') },
   ];
 
   return (
@@ -84,9 +85,10 @@ export default function SuperAdminDashboard() {
       {!loading && !error && (
         <>
           {tab === 'overview' && <OverviewTab clinics={clinics} today={todayStr} totalDoctors={totalDoctors} totalPatients={totalPatients} todayPatients={todayPatients} />}
-          {tab === 'clinics' && <ClinicsTab clinics={clinics} reload={reload} />}
+          {tab === 'clinics'  && <ClinicsTab clinics={clinics} reload={reload} />}
           {tab === 'patients' && <AllPatientsTab clinics={clinics} />}
-          {tab === 'reports' && <ReportsTab clinics={clinics} />}
+          {tab === 'reports'  && <ReportsTab clinics={clinics} />}
+          {tab === 'queries'  && <ContactQueriesTab />}
         </>
       )}
     </DashboardLayout>
@@ -99,10 +101,10 @@ function OverviewTab({ clinics, today, totalDoctors, totalPatients, todayPatient
     <div>
       <SectionHeader title="Platform Overview" subtitle="All clinics at a glance" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 24 }}>
-        <Stat label="Total Clinics" value={clinics.length} icon="🏥" color="#1e293b" />
-        <Stat label="Total Doctors" value={totalDoctors} icon="👨‍⚕️" color="var(--accent)" />
-        <Stat label="Total Patients" value={totalPatients} icon="👥" color="var(--primary)" />
-        <Stat label="Today's Tokens" value={todayPatients} icon="🎫" color="var(--success)" />
+        <Stat label="Total Clinics"   value={clinics.length}  icon="🏥" color="#1e293b" />
+        <Stat label="Total Doctors"   value={totalDoctors}    icon="👨‍⚕️" color="var(--accent)" />
+        <Stat label="Total Patients"  value={totalPatients}   icon="👥" color="var(--primary)" />
+        <Stat label="Today's Tokens"  value={todayPatients}   icon="🎫" color="var(--success)" />
       </div>
 
       <h3 style={{ fontSize: 17, marginBottom: 14 }}>Registered Clinics</h3>
@@ -122,7 +124,11 @@ function OverviewTab({ clinics, today, totalDoctors, totalPatients, todayPatient
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-                  {[{ l: 'Doctors', v: c.doctors?.length || 0 }, { l: 'Receptionists', v: c.receptionists?.length || 0 }, { l: "Today's Tokens", v: todayCount }].map((s) => (
+                  {[
+                    { l: 'Doctors',        v: c.doctors?.length || 0 },
+                    { l: 'Receptionists',  v: c.receptionists?.length || 0 },
+                    { l: "Today's Tokens", v: todayCount },
+                  ].map((s) => (
                     <div key={s.l} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px', textAlign: 'center' }}>
                       <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--primary)' }}>{s.v}</div>
                       <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{s.l}</div>
@@ -163,7 +169,6 @@ function ClinicsTab({ clinics, reload }) {
         title="All Clinics"
         subtitle={`${clinics.length} clinics registered on the platform`}
       />
-
       {clinics.length === 0 ? (
         <Empty icon="🏥" title="No clinics registered" desc="Clinics self-register from the landing page." />
       ) : (
@@ -195,7 +200,6 @@ function ClinicsTab({ clinics, reload }) {
           ))}
         </div>
       )}
-
       {selected && (
         <ClinicDetailModal clinic={selected} onClose={() => { setSelected(null); reload(); }} />
       )}
@@ -323,6 +327,7 @@ function ClinicDetailModal({ clinic, onClose }) {
             </div>
           )}
         </div>
+
       </div>
     </Modal>
   );
@@ -397,9 +402,9 @@ function ReportsTab({ clinics }) {
       ) : (
         <div style={{ display: 'grid', gap: 16 }}>
           {clinics.map((c) => {
-            const todayP = (c.patients || []).filter((p) => p.date === todayStr);
-            const totalRev = todayP.reduce((s, p) => s + (p.paid || 0), 0);
-            const totalDues = todayP.reduce((s, p) => s + (p.dues || 0), 0);
+            const todayP   = (c.patients || []).filter((p) => p.date === todayStr);
+            const totalRev  = todayP.reduce((s, p) => s + (p.paid  || 0), 0);
+            const totalDues = todayP.reduce((s, p) => s + (p.dues  || 0), 0);
             return (
               <Card key={c._id}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -414,11 +419,11 @@ function ReportsTab({ clinics }) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12 }}>
                   {[
-                    { l: "Today's Patients", v: todayP.length, col: 'var(--primary)' },
-                    { l: "Today's Revenue", v: `Rs.${totalRev.toLocaleString()}`, col: 'var(--success)' },
-                    { l: "Today's Dues", v: `Rs.${totalDues.toLocaleString()}`, col: 'var(--danger)' },
-                    { l: 'Total All-time', v: c.patients?.length || 0, col: '#7c3aed' },
-                    { l: 'Doctors', v: c.doctors?.length || 0, col: 'var(--accent)' },
+                    { l: "Today's Patients", v: todayP.length,                      col: 'var(--primary)' },
+                    { l: "Today's Revenue",  v: `Rs.${totalRev.toLocaleString()}`,  col: 'var(--success)' },
+                    { l: "Today's Dues",     v: `Rs.${totalDues.toLocaleString()}`, col: 'var(--danger)'  },
+                    { l: 'Total All-time',   v: c.patients?.length || 0,            col: '#7c3aed'        },
+                    { l: 'Doctors',          v: c.doctors?.length  || 0,            col: 'var(--accent)'  },
                   ].map((s) => (
                     <div key={s.l} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px' }}>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{s.l}</div>
@@ -430,6 +435,125 @@ function ReportsTab({ clinics }) {
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Contact Queries Tab ─────────────────────────────────────── */
+function ContactQueriesTab() {
+  const [queries, setQueries]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+
+  async function load() {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await apiFetch('/queries');
+      setQueries(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function markStatus(id, status) {
+    try {
+      await apiFetch(`/queries/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      setQueries((prev) =>
+        prev.map((q) => (q._id === id ? { ...q, status } : q))
+      );
+    } catch (err) {
+      alert('Failed: ' + err.message);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  const newCount = queries.filter((q) => q.status === 'new').length;
+
+  return (
+    <div>
+      <SectionHeader
+        title="Contact Queries"
+        subtitle={`${queries.length} total · ${newCount} new`}
+        action={<Btn size="sm" variant="outline" onClick={load}>Refresh</Btn>}
+      />
+
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+          Loading queries...
+        </div>
+      )}
+
+      {error && (
+        <Alert type="error" style={{ marginBottom: 16 }}>
+          {error} — <Btn size="sm" variant="outline" onClick={load}>Retry</Btn>
+        </Alert>
+      )}
+
+      {!loading && !error && queries.length === 0 && (
+        <Empty icon="📬" title="No queries yet" desc="Contact form submissions will appear here." />
+      )}
+
+      {!loading && !error && queries.length > 0 && (
+        <Card noPad>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)' }}>
+                  {['Name', 'Email', 'Phone', 'Message', 'Date', 'Status', 'Action'].map((h) => (
+                    <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {queries.map((q) => (
+                  <tr
+                    key={q._id}
+                    style={{ borderBottom: '1px solid var(--border)', background: q.status === 'new' ? 'rgba(59,130,246,0.04)' : 'transparent' }}
+                  >
+                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{q.name}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{q.email}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{q.phone}</td>
+                    <td style={{ padding: '10px 14px', maxWidth: 260 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={q.message}>
+                        {q.message}
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(q.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <Badge color={q.status === 'resolved' ? 'gray' : q.status === 'read' ? 'yellow' : 'blue'}>
+                        {q.status}
+                      </Badge>
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {q.status === 'new' && (
+                          <Btn size="sm" variant="outline" onClick={() => markStatus(q._id, 'read')}>
+                            Mark Read
+                          </Btn>
+                        )}
+                        {q.status !== 'resolved' && (
+                          <Btn size="sm" onClick={() => markStatus(q._id, 'resolved')}>
+                            Resolve
+                          </Btn>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );

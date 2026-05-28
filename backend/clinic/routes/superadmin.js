@@ -2,6 +2,7 @@ import express from 'express';
 import Clinic from '../models/Clinic.js';
 import User from '../models/User.js';
 import Patient from '../models/Patient.js';
+import Contact from '../models/QueryContact.js';   // ← add this import
 import auth from '../middleware/auth.js';
 
 const router = express.Router();
@@ -37,7 +38,7 @@ router.get('/clinics', auth, async (req, res) => {
 router.get('/clinics/:id', auth, async (req, res) => {
   if (!isSuperAdmin(req, res)) return;
   try {
-    const clinic        = await Clinic.findById(req.params.id).select('-password').lean();
+    const clinic = await Clinic.findById(req.params.id).select('-password').lean();
     if (!clinic) return res.status(404).json({ message: 'Clinic not found.' });
 
     const doctors       = await User.find({ clinicId: clinic._id, role: 'doctor' }).select('-password');
@@ -83,6 +84,42 @@ router.patch('/clinics/:id/plan', auth, async (req, res) => {
     ).select('-password');
 
     res.json(clinic);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── GET /api/superadmin/queries  — all contact form submissions ──
+router.get('/queries', auth, async (req, res) => {
+  if (!isSuperAdmin(req, res)) return;
+  try {
+    const queries = await Contact.find().sort({ createdAt: -1 });
+    res.json(queries);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── PATCH /api/superadmin/queries/:id  — update query status ────
+router.patch('/queries/:id', auth, async (req, res) => {
+  if (!isSuperAdmin(req, res)) return;
+  try {
+    const { status } = req.body;
+    const validStatuses = ['new', 'read', 'resolved'];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value.' });
+    }
+
+    const updated = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: 'Query not found.' });
+
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
