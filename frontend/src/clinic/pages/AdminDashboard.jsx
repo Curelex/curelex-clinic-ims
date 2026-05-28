@@ -10,6 +10,148 @@ import { registerPharmacistInIMS } from '../utils/imsAuthBridge';
 import { isSectionVisible, canAddStaff, getPlanConfig } from '../utils/planConfig';   // ✅ ADDED
 
 const IMS_BASE = import.meta.env.VITE_IMS_API_URL || 'http://localhost:5000/ims/api/v1';
+const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL || '/api/clinic';
+
+function generatePrescriptionHTML(prescription, clinicName) {
+  const {
+    patientName, patientAge, patientGender, patientPhone,
+    doctorName, doctorSpecialist, tokenNumber,
+    date, diagnosis, medicines, tests, notes, followUpDate,
+  } = prescription;
+
+  const medsHTML = (medicines || []).length === 0
+    ? '<tr><td colspan="5" style="text-align:center;color:#999;padding:12px">No medicines prescribed</td></tr>'
+    : (medicines || []).map((m, i) => `
+        <tr style="border-bottom:1px solid #eee">
+          <td style="padding:8px 10px;font-weight:600">${i + 1}</td>
+          <td style="padding:8px 10px;font-weight:700;color:#0a3d62">${m.name || ''}</td>
+          <td style="padding:8px 10px">${m.dosage || '-'}</td>
+          <td style="padding:8px 10px">${m.frequency || '-'}</td>
+          <td style="padding:8px 10px">${m.duration || '-'}${m.instructions ? `<br><small style="color:#888">${m.instructions}</small>` : ''}</td>
+        </tr>`).join('');
+
+  const testsHTML = (tests || []).length === 0 ? '' : `
+    <div style="margin-top:20px">
+      <h3 style="font-size:14px;color:#3498db;border-bottom:2px solid #3498db;padding-bottom:6px;margin-bottom:10px">🔬 Investigations / Tests</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:#f0f8ff">
+          <th style="padding:8px 10px;text-align:left;width:40px">#</th>
+          <th style="padding:8px 10px;text-align:left">Test Name</th>
+          <th style="padding:8px 10px;text-align:left">Instructions</th>
+        </tr></thead>
+        <tbody>${(tests || []).map((t, i) => `
+          <tr style="border-bottom:1px solid #eee">
+            <td style="padding:8px 10px">${i + 1}</td>
+            <td style="padding:8px 10px;font-weight:700;color:#0a3d62">${t.name || ''}</td>
+            <td style="padding:8px 10px">${t.instructions || '-'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Prescription - ${patientName}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;color:#222;background:#fff}
+    @media print{body{padding:0}.no-print{display:none!important}@page{margin:15mm;size:A4}}
+    .page{max-width:780px;margin:0 auto;padding:24px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #7c3aed;margin-bottom:18px}
+    .clinic-info h1{font-size:22px;color:#7c3aed;font-weight:800}.clinic-info p{font-size:12px;color:#888;margin-top:2px}
+    .rx-symbol{font-size:60px;color:#7c3aed;font-weight:900;line-height:1;opacity:.15}
+    .doctor-info{text-align:right}.doctor-info h2{font-size:16px;color:#0a3d62;font-weight:700}.doctor-info p{font-size:12px;color:#888}
+    .patient-bar{background:linear-gradient(135deg,#f8f5ff,#f0f8ff);border:1px solid #e8e0ff;border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;gap:24px;flex-wrap:wrap}
+    .patient-field label{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block}
+    .patient-field span{font-size:14px;font-weight:700;color:#0a3d62}
+    .section-title{font-size:14px;color:#7c3aed;border-bottom:2px solid #7c3aed;padding-bottom:6px;margin-bottom:10px;font-weight:700}
+    .diagnosis-box{background:#fafafa;border-left:4px solid #7c3aed;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:18px;font-size:14px;color:#0a3d62}
+    table{width:100%;border-collapse:collapse;font-size:13px}thead tr{background:#f8f5ff}
+    th{padding:8px 10px;text-align:left;font-size:11px;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+    .notes-box{background:#fffbf0;border:1px solid #ffe082;border-radius:8px;padding:12px 16px;margin-top:20px;font-size:13px}
+    .followup-box{background:#f0fff4;border:1px solid #a8e6cf;border-radius:8px;padding:12px 16px;margin-top:12px;font-size:13px;display:flex;align-items:center;gap:8px}
+    .footer{margin-top:40px;border-top:1px solid #eee;padding-top:14px;display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;color:#aaa}
+    .signature-line{border-top:1px solid #aaa;padding-top:4px;text-align:center;width:160px;font-size:11px;color:#555}
+    .token-badge{background:#7c3aed;color:#fff;border-radius:8px;padding:4px 12px;font-size:13px;font-weight:700}
+    .print-btn{position:fixed;top:20px;right:20px;background:#7c3aed;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.4);z-index:1000}
+  </style></head><body>
+  <button class="no-print print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+  <div class="page">
+    <div class="header">
+      <div class="clinic-info"><h1>${clinicName || 'ClinicFlow'}</h1><p>Medical Prescription</p></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="doctor-info"><h2>Dr. ${doctorName || ''}</h2><p>${doctorSpecialist || 'Doctor'}</p></div>
+        <div class="rx-symbol">Rx</div>
+      </div>
+    </div>
+    <div class="patient-bar">
+      <div class="patient-field"><label>Patient Name</label><span>${patientName || 'N/A'}</span></div>
+      ${patientAge ? `<div class="patient-field"><label>Age</label><span>${patientAge} yrs</span></div>` : ''}
+      ${patientGender ? `<div class="patient-field"><label>Gender</label><span style="text-transform:capitalize">${patientGender}</span></div>` : ''}
+      ${patientPhone ? `<div class="patient-field"><label>Phone</label><span>${patientPhone}</span></div>` : ''}
+      <div class="patient-field"><label>Date</label><span>${date || ''}</span></div>
+      <div class="patient-field"><label>Token</label><span class="token-badge">#${tokenNumber || ''}</span></div>
+    </div>
+    ${diagnosis ? `<div style="margin-bottom:18px"><div class="section-title">📋 Diagnosis / Chief Complaint</div><div class="diagnosis-box">${diagnosis}</div></div>` : ''}
+    <div style="margin-bottom:18px">
+      <div class="section-title">💊 Medicines Prescribed</div>
+      <table><thead><tr><th>#</th><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration / Instructions</th></tr></thead>
+      <tbody>${medsHTML}</tbody></table>
+    </div>
+    ${testsHTML}
+    ${notes ? `<div class="notes-box"><strong>📝 Advice / Notes:</strong><br><span style="margin-top:4px;display:block">${notes}</span></div>` : ''}
+    ${followUpDate ? `<div class="followup-box"><span style="font-size:18px">📅</span><div><strong>Follow-up Date:</strong> ${followUpDate}</div></div>` : ''}
+    <div class="footer">
+      <div><div>Generated by ClinicFlow · ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div><div style="margin-top:2px">This prescription is computer generated.</div></div>
+      <div class="signature-line">Dr. ${doctorName || ''}<br>Signature</div>
+    </div>
+  </div></body></html>`;
+}
+
+function RxPdfButton({ patientId, clinicName }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleClick() {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('clinic_token');
+      const res = await fetch(`${CLINIC_BASE}/prescriptions/patient/${patientId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.prescriptions?.length) {
+        alert('No prescription found for this patient.');
+        return;
+      }
+      const rx = data.prescriptions[0];
+      const html = generatePrescriptionHTML(rx, clinicName || rx.clinicName || '');
+      const win = window.open('', '_blank');
+      if (win) { win.document.write(html); win.document.close(); }
+    } catch (e) {
+      alert('Failed to load prescription: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      title="View Prescription PDF"
+      style={{
+        background: loading ? 'rgba(124,58,237,0.05)' : 'rgba(124,58,237,0.10)',
+        border: '1px solid rgba(124,58,237,0.30)',
+        borderRadius: 7, padding: '4px 10px',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        fontSize: 12, color: '#7c3aed', fontWeight: 700,
+        fontFamily: 'inherit', display: 'inline-flex',
+        alignItems: 'center', gap: 4,
+        opacity: loading ? 0.7 : 1,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {loading ? '⏳' : '📋 Rx'}
+    </button>
+  );
+}
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
@@ -419,7 +561,7 @@ async function handleUpdateDoctor(doctorId, updates) {
           {tab === 'overview'      && <Overview clinic={clinic} doctors={doctors} todayPatients={todayPatients} paidTotal={paidTotal} duesTotal={duesTotal} />}
           {tab === 'doctors'       && <DoctorManagement doctors={doctors} patients={patients} onAdd={handleAddUser} onDelete={handleDeleteUser} onUpdateTokenLimit={handleUpdateTokenLimit} onUpdateDoctor={handleUpdateDoctor} activePlan={activePlan} reload={reload} />}
           {tab === 'receptionists' && <ReceptionistManagement receptionists={receptionists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={activePlan} />}
-          {tab === 'patients'      && <AllPatients patients={patients} />}
+          {tab === 'patients' && <AllPatients patients={patients} clinicName={clinic?.name} />}
           {tab === 'followups'     && <AdminFollowUps patients={patients} doctors={doctors} onUpdateFollowUp={handleUpdateFollowUp} />}
           {tab === 'settings'      && <ClinicSettings clinic={clinic} onSave={handleSaveClinic} />}
           {tab === 'pharmacists'   && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} />}
@@ -1549,7 +1691,7 @@ setErr('');
 // Find "export function AllPatients" and replace the entire function with this.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function AllPatients({ patients }) {
+export function AllPatients({ patients, clinicName = '' }) {
   const [search,             setSearch]             = useState('');
   const [dateFilter,         setDateFilter]         = useState('today');
   const [receptionistFilter, setReceptionistFilter] = useState('all');
@@ -1687,7 +1829,7 @@ export function AllPatients({ patients }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface2)' }}>
-                      {['Token','Name','Age','Phone','Symptoms','Paid Rs.','Dues Rs.','Payment','Date','Time','Receptionist','Status'].map((h) => (
+                      {['Token','Name','Age','Phone','Symptoms','Paid Rs.','Dues Rs.','Payment','Date','Time','Receptionist','Status','Prescription'].map((h) => (
                         <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
                       ))}
                     </tr>
@@ -1720,9 +1862,12 @@ export function AllPatients({ patients }) {
                           )}
                         </td>
                         <td style={{ padding: '10px 14px' }}>
-                          <Badge color={p.status === 'called' ? 'green' : p.status === 'done' ? 'gray' : 'blue'}>{p.status}</Badge>
-                        </td>
-                      </tr>
+          <Badge color={p.status === 'called' ? 'green' : p.status === 'done' ? 'gray' : 'blue'}>{p.status}</Badge>
+        </td>
+        <td style={{ padding: '10px 14px' }}>
+          <RxPdfButton patientId={p._id} clinicName={clinicName} />
+        </td>
+      </tr>
                     ))}
                   </tbody>
                 </table>
