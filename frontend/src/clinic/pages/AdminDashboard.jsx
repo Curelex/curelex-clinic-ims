@@ -1142,11 +1142,12 @@ setErr('');
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Input 
-                label="Phone" 
-                value={form.phone} 
-                onChange={(e) => f('phone', e.target.value)} 
-                placeholder="03xx-xxxxxxx" 
-              />
+  label="Phone" 
+  value={form.phone} 
+  onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
+  placeholder="10-digit mobile number"
+  inputMode="numeric"
+/>
               <Input 
                 label="Consultation Fee (Rs.)" 
                 type="number" 
