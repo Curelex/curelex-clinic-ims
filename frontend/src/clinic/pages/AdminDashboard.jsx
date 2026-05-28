@@ -1001,12 +1001,17 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
     }
     
     if (!form.name || !form.email || !form.password || !form.specialist) { 
-      setErr('Fill all required fields.'); 
-      return; 
-    }
-    
-    setBusy(true); 
-    setErr('');
+  setErr('Fill all required fields.'); 
+  return; 
+}
+
+if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
+  setErr('Phone number must be exactly 10 digits.');
+  return;
+}
+
+setBusy(true); 
+setErr('');
     try {
       await onAdd({ role: 'doctor', ...form, fee: parseFloat(form.fee) || 0 });
       setForm({ name: '', specialist: '', phone: '', email: '', password: '', fee: '', schedule: defaultSchedule() });
@@ -1234,12 +1239,19 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
     }
     
     if (!form.name || !form.email || !form.password) { 
-      setErr('Fill all required fields.'); 
-      return; 
-    }
-    
-    setBusy(true); 
-    setErr('');
+  setErr('Fill all required fields.'); 
+  return; 
+}
+
+// ADD THIS
+if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
+  setErr('Phone number must be exactly 10 digits.');
+  return;
+}
+// END ADD
+
+setBusy(true); 
+setErr('');
     try {
       await onAdd({ role: 'receptionist', ...form });
       setForm({ name: '', email: '', phone: '', password: '' });
@@ -1346,12 +1358,12 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
             </div>
             
             <Input 
-              label="Phone" 
-              value={form.phone} 
-              onChange={(e) => f('phone', e.target.value)} 
-              placeholder="03xx-xxxxxxx" 
-            />
-            
+  label="Phone" 
+  value={form.phone} 
+  inputMode="numeric"
+  onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
+  placeholder="10-digit mobile number"
+/>
             {err && <Alert type="error">{err}</Alert>}
             
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
@@ -1373,8 +1385,20 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   async function addPharmacist() {
-    if (!form.name || !form.email || !form.password) { setErr('Fill all required fields.'); return; }
-    setBusy(true); setErr('');
+    if (!form.name || !form.email || !form.password) { 
+  setErr('Fill all required fields.'); 
+  return; 
+}
+
+// ADD THIS
+if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
+  setErr('Phone number must be exactly 10 digits.');
+  return;
+}
+// END ADD
+
+setBusy(true); 
+setErr('');
     try {
       await onAdd({ role: 'pharmacist', ...form });
       await registerPharmacistInIMS({ fullName: form.name, email: form.email, password: form.password });
@@ -1439,7 +1463,13 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
               <Input label="Login Email *" type="email" value={form.email} onChange={(e) => f('email', e.target.value)} placeholder="pharmacy@clinic.com" />
               <Input label="Password *" type="password" value={form.password} onChange={(e) => f('password', e.target.value)} placeholder="••••••" />
             </div>
-            <Input label="Phone" value={form.phone} onChange={(e) => f('phone', e.target.value)} placeholder="03xx-xxxxxxx" />
+            <Input 
+  label="Phone" 
+  value={form.phone} 
+  inputMode="numeric"
+  onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
+  placeholder="10-digit mobile number"
+/>
             {err && <Alert type="error">{err}</Alert>}
             <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>
               <Btn variant="ghost" onClick={() => { setShow(false); setErr(''); }}>Cancel</Btn>
@@ -1727,7 +1757,17 @@ function ClinicSettings({ clinic, onSave }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div><label style={labelStyle}>Clinic Name *</label><input style={inputStyle} value={form.name} onChange={(e) => f('name', e.target.value)} /></div>
           <div><label style={labelStyle}>Owner / Doctor Name *</label><input style={inputStyle} value={form.owner} onChange={(e) => f('owner', e.target.value)} /></div>
-          <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={form.phone} onChange={(e) => f('phone', e.target.value)} /></div>
+          <div>
+  <label style={labelStyle}>Phone</label>
+  <input 
+    style={inputStyle} 
+    value={form.phone} 
+    inputMode="numeric"
+    maxLength={10}
+    onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
+    placeholder="10-digit mobile number"
+  />
+</div>
           <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email} onChange={(e) => f('email', e.target.value)} /></div>
           <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} /></div>
         </div>
