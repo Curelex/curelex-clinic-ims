@@ -13,14 +13,14 @@ const PLANS = [
     key:'lite', name:'Clinic Lite', tagline:'Perfect for single doctor clinics', price:999,
     icon:'🏥', badge:null, bestFor:'Small Clinics, Solo Practitioners, Daily OPD Management',
     color:'#1a7a4a', colorLight:'rgba(26,122,74,0.08)', gradFrom:'#1a7a4a', gradTo:'#27ae60', shadow:'rgba(26,122,74,0.28)',
-    features:['Queue Management','Token System','Single Doctor Access','Single Receptionist Login','Patient Registration','Basic Patient Records','OPD History','Fast Patient Search','Basic Dashboard'],
+    features:['Up to 3 Doctors','2 Receptionist Logins','Queue Management','Token System','Patient Registration','Basic Patient Records','OPD History','Fast Patient Search','Basic Dashboard'],
   },
   {
     key:'plus', name:'Clinic Plus', tagline:'For growing clinics with more doctors & billing needs', price:1499,
     icon:'🏢', badge:'Most Popular', bestFor:'Medium Clinics, Multi-Doctor Clinics, Clinics with In-House Pharmacy',
     color:'#1565a8', colorLight:'rgba(21,101,168,0.08)', gradFrom:'#0a3d62', gradTo:'#1565a8', shadow:'rgba(10,61,98,0.28)',
     extraLabel:'ALL CLINIC LITE FEATURES +',
-    features:['Up to 3 Doctors','2 Receptionist Logins','Pharmacy Inventory Management','Billing & Invoice Generation','Medicine Stock Alerts','Prescription Records','Daily Revenue Reports','Staff Login Management','PDF Report Upload Support'],
+    features:['Multi Doctor & Multi User Access','Unlimited Reception Logins','Pharmacy Inventory Management','Billing & Invoice Generation','Medicine Stock Alerts','Prescription Records','Daily Revenue Reports','Staff Login Management','PDF Report Upload Support'],
   },
   {
     key:'pro', name:'Clinic Pro', tagline:'Complete smart clinic ecosystem with advanced automation', price:1999,

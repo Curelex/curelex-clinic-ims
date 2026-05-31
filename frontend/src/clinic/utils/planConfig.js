@@ -8,8 +8,8 @@ export const PLAN_CONFIG = {
       'overview', 'doctors', 'receptionists', 'allPatients',
       'settings',        // ← was missing! Lite users need Settings
     ],
-    maxDoctors: 1,
-    maxReceptionists: 1,
+    maxDoctors: 3,
+    maxReceptionists: 2,
     maxPharmacists: 0,
   },
   plus: {
@@ -20,9 +20,9 @@ export const PLAN_CONFIG = {
       'followUps', 'pharmacists', 'revenue',
       'settings',        // ← was missing from Plus too!
     ],
-    maxDoctors: 3,       // ← your PlanSelection says "Up to 3 Doctors" but config said 2
-    maxReceptionists: 2,
-    maxPharmacists: 1,
+    maxDoctors: -1,       // ← your PlanSelection says "Up to 3 Doctors" but config said 2
+    maxReceptionists: -1,
+    maxPharmacists: -1,
   },
   pro: {
     key: 'pro',
