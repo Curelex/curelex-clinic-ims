@@ -7,6 +7,7 @@ import { Server } from 'socket.io';
 import imsApp from './ims/app.js';
 import clinicApp from './clinic/app.js';
 import env from './clinic/config/env.js';
+import stripeWebhookRouter from './clinic/webhooks/stripeWebhook.js';
 
 const mainApp = express();
 const server  = http.createServer(mainApp);
@@ -30,6 +31,10 @@ io.on('connection', (socket) => {
 
 // ── Middleware ────────────────────────────────────────────────────
 mainApp.use(cors({ origin: '*', credentials: true }));
+
+// must be above express.json()
+mainApp.use('/api/clinic/webhooks/stripe', stripeWebhookRouter);
+
 mainApp.use(express.json());
 
 // ── Mount both apps ───────────────────────────────────────────────

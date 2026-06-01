@@ -11,6 +11,7 @@ import fileRoutes         from './routes/files.js';
 import contactRoutes      from './routes/query.js';
 import pincodeRoutes      from './routes/pincode.js';
 import prescriptionRoutes from './routes/prescriptions.js'; // ✅ NEW
+import paymentRoutes       from './routes/paymentRoutes.js';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/queue',         queueRoutes);
 app.use('/contact',       contactRoutes);
 app.use('/pincode',       pincodeRoutes);
 app.use('/prescriptions', prescriptionRoutes); // ✅ NEW
+app.use('/payments', paymentRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'Clinic system OK' });
