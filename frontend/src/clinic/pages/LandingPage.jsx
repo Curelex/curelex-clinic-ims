@@ -1406,11 +1406,31 @@ setLoading(true);
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[
-            { icon: '🏥', bg: 'rgba(0,184,148,.1)', title: 'Hybrid E-Clinic Model', desc: 'OPD-based telemedicine combining in-person diagnostics with remote super-speciality consultations.' },
-            { icon: '📡', bg: 'rgba(21,101,168,.1)', title: 'Rural & Semi-Urban Reach', desc: 'Designed for low-bandwidth environments — works reliably even with limited connectivity.' },
-            { icon: '💊', bg: 'rgba(108,92,231,.1)', title: 'Integrated Pharmacy & Diagnostics', desc: 'Prescriptions, lab tests, and medicine dispensing managed from a single platform.' },
-            { icon: '🔒', bg: 'rgba(253,203,110,.12)', title: 'Safe & Zero-Invasive', desc: 'HIPAA-aligned data practices with role-based access to protect every patient record.' },
-          ].map(({ icon, bg, title, desc }) => (
+  {
+    icon: '🏥',
+    bg: 'rgba(0,184,148,.1)',
+    title: 'Smart Clinic Management',
+    desc: 'End-to-end clinic operations management including patient registration, appointments, billing, and staff coordination from a unified dashboard.',
+  },
+  {
+    icon: '⏳',
+    bg: 'rgba(21,101,168,.1)',
+    title: 'Queue Management System',
+    desc: 'Reduce patient waiting times with real-time token generation, queue tracking, and automated patient notifications.',
+  },
+  {
+    icon: '📋',
+    bg: 'rgba(108,92,231,.1)',
+    title: 'Electronic Medical Records (EMR)',
+    desc: 'Securely maintain patient histories, prescriptions, diagnoses, and treatment records for quick access and better continuity of care.',
+  },
+  {
+    icon: '💊',
+    bg: 'rgba(253,203,110,.12)',
+    title: 'Integrated Pharmacy & Diagnostics',
+    desc: 'Manage prescriptions, laboratory investigations, diagnostic reports, and medicine dispensing through a single connected platform.',
+  },
+].map(({ icon, bg, title, desc }) => (
             <div key={title} className="benefit-item" style={{
               display: 'flex', alignItems: 'flex-start', gap: 14,
               padding: 16, background: 'var(--surface)',
