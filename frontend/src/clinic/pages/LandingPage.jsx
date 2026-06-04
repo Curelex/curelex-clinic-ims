@@ -193,7 +193,7 @@ function IcoLocation() {
 }
 
 // ── Validated text input ──────────────────────────────────────────────────────
-function FieldInput({ label, type = 'text', value, onChange, placeholder, inputMode, S, disabled, suffix, hint, hintType }) {
+function FieldInput({ label, type = 'text', value, onChange, placeholder, inputMode, S, disabled, suffix, hint, hintType,...rest }) {
   const [focused, setFocused] = useState(false);
   const borderColor = hintType === 'err' ? '#e74c3c' : hintType === 'ok' ? '#00b894' : focused ? '#1565a8' : '#d0dce8';
   const shadow     = hintType === 'err'
@@ -210,7 +210,7 @@ function FieldInput({ label, type = 'text', value, onChange, placeholder, inputM
       <div style={{ position: 'relative' }}>
         <input
           type={type} inputMode={inputMode} value={value} onChange={onChange}
-          placeholder={placeholder} disabled={disabled}
+          placeholder={placeholder} disabled={disabled} {...rest}
           autoComplete={type === 'password' ? 'current-password' : type === 'email' ? 'email' : 'off'}
           style={{
             ...S.fieldInput,
@@ -327,7 +327,7 @@ function SearchDropdown({ label, value, onChange, options, placeholder, S, disab
 }
 
 // ── Pincode field — uses India Post API ───────────────────────────────────────
-function PincodeField({ value, onChange, onAutoFill, S, disabled }) {
+function PincodeField({ value, onChange, onAutoFill, S, disabled,...rest }) {
   const [status, setStatus] = useState(null); // null | 'loading' | 'found' | 'not-found'
 
   async function handleChange(e) {
@@ -377,6 +377,7 @@ function PincodeField({ value, onChange, onAutoFill, S, disabled }) {
           }}
           onFocus={e => { if (!borderColor) e.target.style.borderColor = '#1565a8'; }}
           onBlur={e  => { if (!borderColor) e.target.style.borderColor = '#d0dce8'; }}
+          {...rest}
         />
         <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', lineHeight:1 }}>
           {status === 'loading'   && <IcoSpinner />}
@@ -395,7 +396,7 @@ function PincodeField({ value, onChange, onAutoFill, S, disabled }) {
 }
 
 // ── Phone field (exactly 10 digits) ──────────────────────────────────────────
-function PhoneField({ label, value, onChange, S, disabled, placeholder }) {
+function PhoneField({ label, value, onChange, S, disabled, placeholder,...rest }) {
   const digits  = value.replace(/\D/g, '');
   const touched = value.length > 0;
   const isOk    = digits.length === 10;
@@ -410,7 +411,7 @@ function PhoneField({ label, value, onChange, S, disabled, placeholder }) {
     <FieldInput
       S={S} label={label} type="tel" inputMode="numeric"
       value={value} onChange={handleChange}
-      placeholder={placeholder || '10-digit mobile number'} disabled={disabled}
+      placeholder={placeholder || '10-digit mobile number'} disabled={disabled} {...rest}
       hintType={touched ? (isOk ? 'ok' : 'err') : undefined}
       hint={isOk && touched ? '10 digits ✓' : hint}
     />
@@ -418,7 +419,7 @@ function PhoneField({ label, value, onChange, S, disabled, placeholder }) {
 }
 
 // ── Email field with format validation ────────────────────────────────────────
-function EmailField({ label, value, onChange, S, disabled, placeholder }) {
+function EmailField({ label, value, onChange, S, disabled, placeholder,...rest }) {
   const [touched, setTouched] = useState(false);
   const valid = isValidEmail(value);
 
@@ -431,6 +432,7 @@ function EmailField({ label, value, onChange, S, disabled, placeholder }) {
           onChange={e => { onChange(e); }}
           onBlur={() => setTouched(true)}
           placeholder={placeholder || 'admin@clinic.com'} disabled={disabled}
+          {...rest}
           autoComplete="email"
           style={{
             ...S.fieldInput,
@@ -944,7 +946,26 @@ setLoading(true);
     { q: 'Does it work on mobile?', a: 'Curelex is fully responsive and works on any device. We also have dedicated iOS and Android apps coming soon.' },
     { q: 'How secure is patient data?', a: 'All data is encrypted at rest and in transit using AES-256. We follow HIPAA-aligned practices and never share data with third parties.' },
   ];
+  const formRef = useRef(null);
+  const handleEnter = (e) => {
+    if (e.key !== "Enter") return;
 
+    e.preventDefault();
+
+    const fields = Array.from(
+      formRef.current.querySelectorAll(
+        "input, select, textarea"
+      )
+    ).filter(
+      (el) => !el.disabled && el.offsetParent !== null
+    );
+
+    const index = fields.indexOf(e.target);
+
+    if (index > -1 && fields[index + 1]) {
+      fields[index + 1].focus();
+    }
+  };
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", background: 'var(--bg)', color: 'var(--text)', ...Object.fromEntries(Object.entries(themeVars)) }}>
       <style>{globalCSS}</style>
@@ -1763,6 +1784,8 @@ setLoading(true);
       
     {mode === 'register' && (
             <div
+            ref={formRef}
+    onKeyDown={handleEnter}
             style={{
               ...S.card,
               borderRadius: 24,
@@ -1791,12 +1814,14 @@ setLoading(true);
                 onChange={e => f('email', e.target.value)}
                 placeholder="admin@clinic.com"
                 disabled={loading}
+            
               />
               <PhoneField
                 S={S} label="Phone (10 digits)"
                 value={form.phone}
                 onChange={v => f('phone', v)}
                 disabled={loading}
+               
               />
             </div>
 
@@ -1824,6 +1849,7 @@ setLoading(true);
                     e.target.style.borderColor = form.whatsapp ? (d.length === 10 ? '#00b894' : '#e74c3c') : '#d0dce8';
                     e.target.style.boxShadow   = form.whatsapp && d.length === 10 ? '0 0 0 3px rgba(0,184,148,0.12)' : 'none';
                   }}
+                 
                 />
               </div>
               {form.whatsapp && !isValidPhone(form.whatsapp) && (
@@ -1899,6 +1925,12 @@ setLoading(true);
   onChange={e => f('password', e.target.value)} 
   placeholder="Min 6 chars, 1 uppercase, 1 digit, 1 special" 
   disabled={loading} 
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleRegister();
+    }
+  }}
 />
 
             {err && <div style={S.alertError}><IcoAlert /> <span>{err}</span></div>}
@@ -1914,6 +1946,8 @@ setLoading(true);
         )}
   {mode === 'login' && (
             <div
+            ref={formRef}
+    onKeyDown={handleEnter}
             style={{
               ...S.card,
               borderRadius: 24,
@@ -1950,7 +1984,13 @@ setLoading(true);
               placeholder="your@email.com"
               disabled={loading}
             />
-            <FieldInput S={S} label="Password" type="password" value={form.password} onChange={e => f('password', e.target.value)} placeholder="Your password" disabled={loading} />
+            <FieldInput S={S} label="Password" type="password" value={form.password} onChange={e => f('password', e.target.value)} placeholder="Your password" disabled={loading} onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleLogin();
+    }
+  }}
+/>
 
             {err && <div style={S.alertError}><IcoAlert /> <span>{err}</span></div>}
 

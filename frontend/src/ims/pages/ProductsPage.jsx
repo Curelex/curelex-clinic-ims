@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import DataTable from "../components/common/DataTable";
 import usePermissions from "../hooks/usePermissions";
@@ -39,6 +39,29 @@ const ProductsPage = () => {
   const [form, setForm]         = useState(initialForm);
   const [loading, setLoading]   = useState(false);
   const [qrModal, setQrModal]   = useState(null);
+  const formRef = useRef(null);
+
+const handleEnter = (e) => {
+  if (e.key !== "Enter") return;
+
+  e.preventDefault();
+
+  const fields = Array.from(
+    formRef.current.querySelectorAll(
+      "input, textarea, button"
+    )
+  ).filter(
+    (el) => !el.disabled
+  );
+
+  const index = fields.indexOf(e.target);
+
+  if (index < fields.length - 1) {
+    fields[index + 1].focus();
+  } else {
+    onCreate(e);
+  }
+};
 
   // ── Load products ──────────────────────────────────────────────
   const loadProducts = async () => {
@@ -163,11 +186,13 @@ const ProductsPage = () => {
       {/* Add product form */}
       {canWriteProducts && (
         <form
+        ref={formRef}
           onSubmit={onCreate}
           className="grid gap-3 rounded-xl border border-brand-100 bg-white p-4 md:grid-cols-3"
         >
           {Object.keys(initialForm).map((field) => (
             <input
+            onKeyDown={handleEnter}
               key={field}
               placeholder={fieldLabels[field]}
               className="rounded-lg border border-brand-100 px-3 py-2 text-sm"

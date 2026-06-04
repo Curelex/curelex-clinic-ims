@@ -1028,7 +1028,7 @@
 
 
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DashboardLayout, Card, Stat, Btn, Badge, Input, Select,
   Textarea, Modal, Alert, SectionHeader, Empty, TokenBadge,
@@ -1223,7 +1223,7 @@ function RxPdfButton({ patientId, clinicName }) {
   );
 }
 
-function PhoneInput({ label, value, onChange, placeholder }) {
+function PhoneInput({ label, value, onChange, placeholder,...rest }) {
   const isFull = value.length === 10;
   function handleChange(e) {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -1236,7 +1236,7 @@ function PhoneInput({ label, value, onChange, placeholder }) {
         <input
           type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={10}
           value={value} onChange={handleChange}
-          placeholder={placeholder || '10-digit number'}
+          placeholder={placeholder || '10-digit number'} {...rest}
           style={{
             width: '100%', padding: '9px 40px 9px 12px',
             border: `1.5px solid ${value.length > 0 && !isFull ? '#e74c3c' : isFull ? '#00a878' : 'var(--border)'}`,
@@ -1776,7 +1776,7 @@ function DoctorSelector({ doctors, patients, form, f }) {
   );
 }
 
-function PaymentCard({ form, f, dues }) {
+function PaymentCard({ form, f, dues,handleEnter }) {
   return (
     <Card>
       <h3 style={{ fontSize: 16, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>💰 Payment Details</h3>
@@ -1786,12 +1786,39 @@ function PaymentCard({ form, f, dues }) {
           <div style={{ display: 'flex', gap: 8 }}>
             {[{ value: 'cash', label: '💵 Cash', color: '#00a878', bg: 'rgba(0,184,148,0.10)', border: 'rgba(0,184,148,0.40)' }, { value: 'upi', label: '📲 UPI', color: '#7c3aed', bg: 'rgba(124,58,237,0.10)', border: 'rgba(124,58,237,0.40)' }].map((opt) => {
               const selected = form.paymentMethod === opt.value;
-              return <button key={opt.value} type="button" onClick={() => f('paymentMethod', opt.value)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, cursor: 'pointer', border: `2px solid ${selected ? opt.border : 'var(--border)'}`, background: selected ? opt.bg : 'var(--surface)', color: selected ? opt.color : 'var(--text-muted)', fontWeight: selected ? 700 : 500, fontSize: 14, fontFamily: 'inherit', transition: '.15s' }}>{opt.label}</button>;
+              return <button key={opt.value}  onKeyDown={(e) => {
+                // Move between payment methods
+                if (e.key === "ArrowRight" && opt.value === "cash") {
+                  document.getElementById("upi-payment-btn")?.focus();
+                  f("paymentMethod", "upi");
+                }
+            
+                if (e.key === "ArrowLeft" && opt.value === "upi") {
+                  document.getElementById("cash-payment-btn")?.focus();
+                  f("paymentMethod", "cash");
+                }
+            
+                // Enter → Total Fee
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  document.getElementById("total-fee-input")?.focus();
+                }
+              }}
+              id={opt.value === "cash" ? "cash-payment-btn" : "upi-payment-btn"} 
+              type="button" onClick={() => f('paymentMethod', opt.value)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, cursor: 'pointer', border: `2px solid ${selected ? opt.border : 'var(--border)'}`, background: selected ? opt.bg : 'var(--surface)', color: selected ? opt.color : 'var(--text-muted)', fontWeight: selected ? 700 : 500, fontSize: 14, fontFamily: 'inherit', transition: '.15s' }}>{opt.label}</button>;
             })}
           </div>
         </div>
-        <Input label="Total Fee (Rs.)" type="number" value={form.totalFee} onChange={(e) => f('totalFee', e.target.value)} placeholder="0" />
-        <Input label="Amount Paid Now (Rs.)" type="number" value={form.paid} onChange={(e) => f('paid', e.target.value)} placeholder="0" />
+        <Input
+  id="total-fee-input"
+  label="Total Fee (Rs.)"
+  type="number"
+  value={form.totalFee}
+  onChange={(e) => f('totalFee', e.target.value)}
+  placeholder="0"
+  onKeyDown={handleEnter}
+/>
+        <Input label="Amount Paid Now (Rs.)" type="number" value={form.paid} onChange={(e) => f('paid', e.target.value)} onKeyDown={handleEnter} placeholder="0" />
         <div style={{ background: dues > 0 ? 'var(--danger-light)' : 'var(--success-light)', borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Dues / Remaining</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: dues > 0 ? 'var(--danger)' : 'var(--success)' }}>Rs. {dues.toLocaleString()}</div>
@@ -1822,6 +1849,27 @@ function PatientRegister({ doctors, patients, onRegistered }) {
 }
 
 function NewPatientForm({ doctors, patients, prefillPhone, onRegistered, onBack }) {
+  const formRef = useRef(null);
+
+  const handleEnter = (e) => {
+    if (e.key !== "Enter") return;
+
+    e.preventDefault();
+
+    const fields = Array.from(
+      formRef.current.querySelectorAll(
+        "input, select, textarea, button, [tabindex='0']"
+      )
+    ).filter(
+      (el) => !el.disabled && el.offsetParent !== null
+    );
+
+    const index = fields.indexOf(e.target);
+
+    if (index > -1 && fields[index + 1]) {
+      fields[index + 1].focus();
+    }
+  };
   const init = { name: '', age: '', phone: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), whatsapp: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), gender: 'male', symptoms: '', doctorId: '', doctorName: '', totalFee: '', paid: '', notes: '', paymentMethod: 'cash' };
   const [form, setForm] = useState(init);
   const [err, setErr] = useState('');
@@ -1845,7 +1893,7 @@ function NewPatientForm({ doctors, patients, prefillPhone, onRegistered, onBack 
     finally { setBusy(false); }
   }
   return (
-    <div>
+    <div ref={formRef}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, padding: '12px 16px', background: 'rgba(0,184,148,0.07)', border: '1.5px solid rgba(0,184,148,0.2)', borderRadius: 12, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 20 }}>👤</span>
@@ -1857,24 +1905,24 @@ function NewPatientForm({ doctors, patients, prefillPhone, onRegistered, onBack 
         <Card>
           <h3 style={{ fontSize: 16, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>👤 Patient Information</h3>
           <div style={{ display: 'grid', gap: 14 }}>
-            <Input label="Full Name *" value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="e.g. Muhammad Ahmed" />
+            <Input label="Full Name *" value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="e.g. Muhammad Ahmed" onKeyDown={handleEnter}/>
             <div className="rp-age-gender" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Input label="Age" type="number" value={form.age} onChange={(e) => f('age', e.target.value)} placeholder="25" />
-              <Select label="Gender" value={form.gender} onChange={(e) => f('gender', e.target.value)}><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></Select>
+              <Input label="Age" type="number" value={form.age} onChange={(e) => f('age', e.target.value)} placeholder="25" onKeyDown={handleEnter} />
+              <Select label="Gender" value={form.gender} onChange={(e) => f('gender', e.target.value)} onKeyDown={handleEnter}><option value="male">Male</option><option value="female">Female</option><option value="other" >Other</option></Select>
             </div>
             <div className="rp-phone-wa" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <PhoneInput label="Phone" value={form.phone} onChange={(v) => f('phone', v)} />
-              <PhoneInput label="WhatsApp" value={form.whatsapp} onChange={(v) => f('whatsapp', v)} />
+              <PhoneInput label="Phone" value={form.phone} onChange={(v) => f('phone', v)} onKeyDown={handleEnter}/>
+              <PhoneInput label="WhatsApp" value={form.whatsapp} onChange={(v) => f('whatsapp', v)} onKeyDown={handleEnter}/>
             </div>
-            <Textarea label="Symptoms / Complaint *" value={form.symptoms} onChange={(e) => f('symptoms', e.target.value)} placeholder="Describe patient's symptoms..." rows={3} />
-            <Textarea label="Additional Notes" value={form.notes} onChange={(e) => f('notes', e.target.value)} placeholder="Any other information..." rows={2} />
+            <Textarea label="Symptoms / Complaint *" value={form.symptoms} onChange={(e) => f('symptoms', e.target.value)} placeholder="Describe patient's symptoms..." rows={3} onKeyDown={handleEnter} />
+            <Textarea label="Additional Notes" value={form.notes} onChange={(e) => f('notes', e.target.value)} placeholder="Any other information..." rows={2} onKeyDown={handleEnter}/>
           </div>
         </Card>
         <div style={{ display: 'grid', gap: 16 }}>
           <DoctorSelector doctors={doctors} patients={patients} form={form} f={f} />
-          <PaymentCard form={form} f={f} dues={dues} />
+          <PaymentCard form={form} f={f} dues={dues} handleEnter={handleEnter}/>
           {err && <Alert type="error">{err}</Alert>}
-          <Btn full size="lg" onClick={register} disabled={busy}>{busy ? 'Registering…' : '🎫 Generate Token & Register'}</Btn>
+          <Btn full size="lg" onClick={register} disabled={busy} onKeyDown={handleEnter}>{busy ? 'Registering…' : '🎫 Generate Token & Register'}</Btn>
         </div>
       </div>
     </div>

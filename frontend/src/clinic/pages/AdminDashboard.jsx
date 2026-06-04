@@ -1111,7 +1111,7 @@ const SPECIALISTS = [
   'Gynecologist','Neurologist','Orthopedic','Pediatrician','Psychiatrist',
   'Urologist','Dentist','Eye Specialist','Diabetologist','Chest Specialist',
 ];
-function EmailInputWithCheck({ label, value, onChange, placeholder, setErr }) {
+function EmailInputWithCheck({ label, value, onChange, placeholder, setErr ,onKeyDown}) {
   const [checking, setChecking] = useState(false);
   const [emailErr, setEmailErr] = useState('');
 
@@ -1147,6 +1147,7 @@ function EmailInputWithCheck({ label, value, onChange, placeholder, setErr }) {
           onChange={onChange}
           onBlur={handleBlur}
           placeholder={placeholder}
+          onKeyDown={onKeyDown}
           style={{
             width: '100%', padding: '9px 12px', borderRadius: 9,
             border: `1.5px solid ${emailErr ? '#e74c3c' : '#d0dce8'}`,
@@ -1189,6 +1190,24 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
   const canAdd = canAddStaff(activePlan, 'doctors', doctors.length);
   const planConfig = getPlanConfig(activePlan);
   const maxDoctors = planConfig.maxDoctors === -1 ? '∞' : planConfig.maxDoctors;
+
+  function handleEnterKey(e) {
+    if (e.key !== "Enter") return;
+  
+    e.preventDefault();
+  
+    const focusable = Array.from(
+      document.querySelectorAll(
+        'input, select, textarea, button'
+      )
+    ).filter(el => !el.disabled);
+  
+    const index = focusable.indexOf(e.target);
+  
+    if (index > -1 && index < focusable.length - 1) {
+      focusable[index + 1].focus();
+    }
+  }
 
   async function addDoctor() {
     // Check plan limit before adding
@@ -1309,11 +1328,13 @@ setErr('');
                 value={form.name} 
                 onChange={(e) => f('name', e.target.value)} 
                 placeholder="Dr. Ahmed Ali" 
+                onKeyDown={handleEnterKey}
               />
               <Select 
                 label="Specialist *" 
                 value={form.specialist} 
                 onChange={(e) => f('specialist', e.target.value)}
+                onKeyDown={handleEnterKey}
               >
                 <option value="">-- Select --</option>
                 {SPECIALISTS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -1327,6 +1348,8 @@ setErr('');
   onChange={(e) => f('email', e.target.value)}
   placeholder="doctor@clinic.com"
   setErr={setErr}
+  onKeyDown={handleEnterKey}
+
 />
               <Input 
                 label="Password *" 
@@ -1334,6 +1357,7 @@ setErr('');
                 value={form.password} 
                 onChange={(e) => f('password', e.target.value)} 
                 placeholder="••••••" 
+                onKeyDown={handleEnterKey}
               />
             </div>
             
@@ -1344,6 +1368,7 @@ setErr('');
   onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
   placeholder="10-digit mobile number"
   inputMode="numeric"
+  onKeyDown={handleEnterKey}
 />
               <Input 
                 label="Consultation Fee (Rs.)" 
@@ -1351,6 +1376,7 @@ setErr('');
                 value={form.fee} 
                 onChange={(e) => f('fee', e.target.value)} 
                 placeholder="500" 
+                onKeyDown={handleEnterKey}
               />
             </div>
             
@@ -1428,6 +1454,24 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
   const canAdd = canAddStaff(activePlan, 'receptionists', receptionists.length);
   const planConfig = getPlanConfig(activePlan);
   const maxReceptionists = planConfig.maxReceptionists === -1 ? '∞' : planConfig.maxReceptionists;
+
+  function handleEnterKey(e) {
+    if (e.key !== "Enter") return;
+  
+    e.preventDefault();
+  
+    const focusable = Array.from(
+      document.querySelectorAll(
+        'input, select, textarea, button'
+      )
+    ).filter(el => !el.disabled);
+  
+    const index = focusable.indexOf(e.target);
+  
+    if (index > -1 && index < focusable.length - 1) {
+      focusable[index + 1].focus();
+    }
+  }
 
   async function addRec() {
     // Check plan limit before adding
@@ -1536,6 +1580,7 @@ setErr('');
               value={form.name} 
               onChange={(e) => f('name', e.target.value)} 
               placeholder="e.g. Ayesha Bibi" 
+              onKeyDown={handleEnterKey}
             />
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1545,6 +1590,7 @@ setErr('');
   onChange={(e) => f('email', e.target.value)}
   placeholder="rec@clinic.com"
   setErr={setErr}
+  onKeyDown={handleEnterKey}
 />
               <Input 
                 label="Password *" 
@@ -1552,6 +1598,7 @@ setErr('');
                 value={form.password} 
                 onChange={(e) => f('password', e.target.value)} 
                 placeholder="••••••" 
+                onKeyDown={handleEnterKey}
               />
             </div>
             
@@ -1588,6 +1635,7 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
   return; 
 }
 
+
 // ADD THIS
 if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
   setErr('Phone number must be exactly 10 digits.');
@@ -1609,6 +1657,24 @@ setErr('');
   async function removePharmacist(id) {
     if (!window.confirm('Remove this pharmacist?')) return;
     try { await onDelete(id); } catch(e) { alert(e.message); }
+  }
+
+  function handleEnterKey(e) {
+    if (e.key !== "Enter") return;
+  
+    e.preventDefault();
+  
+    const focusable = Array.from(
+      document.querySelectorAll(
+        'input, select, textarea, button'
+      )
+    ).filter(el => !el.disabled);
+  
+    const index = focusable.indexOf(e.target);
+  
+    if (index > -1 && index < focusable.length - 1) {
+      focusable[index + 1].focus();
+    }
   }
 
   return (
@@ -1656,7 +1722,7 @@ setErr('');
             <div style={{ background: 'rgba(0,184,148,0.06)', border: '1px solid rgba(0,184,148,0.2)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#4a6278' }}>
               💡 Pharmacists will be able to log in and access the <strong>Inventory Management System</strong> to manage medicines and stock.
             </div>
-            <Input label="Full Name *" value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="e.g. Ahmed Pharmacy" />
+            <Input label="Full Name *" value={form.name} onChange={(e) => f('name', e.target.value)} placeholder="e.g. Ahmed Pharmacy" onKeyDown={handleEnterKey}/>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               <EmailInputWithCheck
   label="Login Email *"
@@ -1664,8 +1730,9 @@ setErr('');
   onChange={(e) => f('email', e.target.value)}
   placeholder="pharmacy@clinic.com"
   setErr={setErr}
+  onKeyDown={handleEnterKey}
 />
-              <Input label="Password *" type="password" value={form.password} onChange={(e) => f('password', e.target.value)} placeholder="••••••" />
+              <Input label="Password *" type="password" value={form.password} onChange={(e) => f('password', e.target.value)} placeholder="••••••" onKeyDown={handleEnterKey}/>
             </div>
             <Input 
   label="Phone" 
@@ -1673,6 +1740,7 @@ setErr('');
   inputMode="numeric"
   onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
   placeholder="10-digit mobile number"
+  
 />
             {err && <Alert type="error">{err}</Alert>}
             <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>
@@ -1940,6 +2008,23 @@ function ClinicSettings({ clinic, onSave }) {
     setForm((p) => ({ ...p, pincode: clean }));
     setLookupPin(clean);
   }
+  function handleEnterKey(e) {
+    if (e.key !== "Enter") return;
+  
+    e.preventDefault();
+  
+    const focusable = Array.from(
+      document.querySelectorAll(
+        'input, select, textarea, button'
+      )
+    ).filter(el => !el.disabled);
+  
+    const index = focusable.indexOf(e.target);
+  
+    if (index > -1 && index < focusable.length - 1) {
+      focusable[index + 1].focus();
+    }
+  }
 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const districts = form.state ? (INDIA_STATES_DISTRICTS[form.state] || []) : [];
@@ -1962,8 +2047,10 @@ function ClinicSettings({ clinic, onSave }) {
       <Card style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>🏥 Basic Information</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div><label style={labelStyle}>Clinic Name *</label><input style={inputStyle} value={form.name} onChange={(e) => f('name', e.target.value)} /></div>
-          <div><label style={labelStyle}>Owner / Doctor Name *</label><input style={inputStyle} value={form.owner} onChange={(e) => f('owner', e.target.value)} /></div>
+          <div><label style={labelStyle}>Clinic Name *</label><input style={inputStyle} value={form.name} onChange={(e) => f('name', e.target.value)} onKeyDown={handleEnterKey}
+          /></div>
+          <div><label style={labelStyle}>Owner / Doctor Name *</label><input style={inputStyle} value={form.owner} onChange={(e) => f('owner', e.target.value)} onKeyDown={handleEnterKey}
+          /></div>
           <div>
   <label style={labelStyle}>Phone</label>
   <input 
@@ -1973,10 +2060,11 @@ function ClinicSettings({ clinic, onSave }) {
     maxLength={10}
     onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
     placeholder="10-digit mobile number"
+    onKeyDown={handleEnterKey}
   />
 </div>
-          <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email} onChange={(e) => f('email', e.target.value)} /></div>
-          <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} /></div>
+          <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email} onChange={(e) => f('email', e.target.value)} onKeyDown={handleEnterKey}/></div>
+          <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} onKeyDown={handleEnterKey}/></div>
         </div>
       </Card>
       <Card style={{ marginBottom: 20 }}>

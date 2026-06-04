@@ -51,7 +51,7 @@ export function Stat({ label, value, color = 'var(--primary)', icon }) {
 }
 
 /* ── Input ─────────────────────────────────────────────────── */
-export function Input({ label, type = 'text', value, onChange, placeholder, required, style = {}, disabled }) {
+export function Input({ label, type = 'text', value, onChange, placeholder, required, style = {}, disabled,...rest }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, ...style }}>
       {label && (
@@ -61,6 +61,7 @@ export function Input({ label, type = 'text', value, onChange, placeholder, requ
       )}
       <input
         type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+        {...rest}
         style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 14, color: 'var(--text)', background: disabled ? 'var(--surface2)' : 'var(--surface)', transition: 'border .2s', width: '100%', opacity: disabled ? 0.7 : 1, boxSizing: 'border-box' }}
         onFocus={(e) => !disabled && (e.target.style.borderColor = 'var(--primary)')}
         onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
@@ -70,7 +71,8 @@ export function Input({ label, type = 'text', value, onChange, placeholder, requ
 }
 
 /* ── Textarea ──────────────────────────────────────────────── */
-export function Textarea({ label, value, onChange, placeholder, rows = 3, required }) {
+export function Textarea({ label, value, onChange, placeholder, rows = 3, required,...rest
+}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {label && (
@@ -79,7 +81,7 @@ export function Textarea({ label, value, onChange, placeholder, rows = 3, requir
         </label>
       )}
       <textarea
-        value={value} onChange={onChange} placeholder={placeholder} rows={rows}
+        value={value} onChange={onChange} placeholder={placeholder} rows={rows}  {...rest}
         style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 14, resize: 'vertical', fontFamily: 'inherit', color: 'var(--text)', background: 'var(--surface)', boxSizing: 'border-box', width: '100%' }}
         onFocus={(e) => (e.target.style.borderColor = 'var(--primary)')}
         onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
@@ -89,12 +91,12 @@ export function Textarea({ label, value, onChange, placeholder, rows = 3, requir
 }
 
 /* ── Select ────────────────────────────────────────────────── */
-export function Select({ label, value, onChange, children, style = {} }) {
+export function Select({ label, value, onChange, children, style = {},...rest }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, ...style }}>
       {label && <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>{label}</label>}
       <select
-        value={value} onChange={onChange}
+        value={value} onChange={onChange} {...rest}
         style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 14, color: 'var(--text)', background: 'var(--surface)', appearance: 'none', cursor: 'pointer', width: '100%' }}
         onFocus={(e) => (e.target.style.borderColor = 'var(--primary)')}
         onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
