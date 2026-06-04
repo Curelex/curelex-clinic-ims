@@ -225,7 +225,7 @@ function PaymentBadge({ method }) {
   );
 }
 
-function WeeklySchedulePicker({ value, onChange }) {
+function WeeklySchedulePicker({ value, onChange,onKeyDown }) {
   const schedule = value && value.length === 7 ? value : defaultSchedule();
   function toggle(idx) {
     onChange(schedule.map((s, i) => i === idx ? { ...s, open: !s.open } : s));
@@ -250,9 +250,9 @@ function WeeklySchedulePicker({ value, onChange }) {
             <span style={{ width: 84, fontWeight: slot.open ? 700 : 500, fontSize: 13, color: slot.open ? (isWeekend ? '#00a878' : '#0a3d62') : '#8fa8bc', flexShrink: 0 }}>{slot.day}</span>
             {slot.open ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
-                <input type="time" value={slot.from} onChange={(e) => setTime(idx, 'from', e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #c5d5e8', fontSize: 13, color: '#0a3d62', fontWeight: 600, background: '#f4f8fc', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }} />
+                <input data-schedule-input onKeyDown={onKeyDown} type="time" value={slot.from} onChange={(e) => setTime(idx, 'from', e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #c5d5e8', fontSize: 13, color: '#0a3d62', fontWeight: 600, background: '#f4f8fc', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }} />
                 <span style={{ color: '#8fa8bc', fontSize: 12, fontWeight: 500 }}>to</span>
-                <input type="time" value={slot.to} onChange={(e) => setTime(idx, 'to', e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #c5d5e8', fontSize: 13, color: '#0a3d62', fontWeight: 600, background: '#f4f8fc', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }} />
+                <input  data-schedule-input onKeyDown={onKeyDown} type="time" value={slot.to} onChange={(e) => setTime(idx, 'to', e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #c5d5e8', fontSize: 13, color: '#0a3d62', fontWeight: 600, background: '#f4f8fc', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }} />
               </div>
             ) : (
               <span style={{ color: '#b0bec5', fontSize: 12.5, fontStyle: 'italic', fontWeight: 500 }}>Closed</span>
@@ -1196,11 +1196,22 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
   
     e.preventDefault();
   
+    // If currently in Fee field -> Add Doctor
+    if (
+      e.target.type === "number" &&
+      e.target.placeholder === "500"
+    ) {
+      addDoctor();
+      return;
+    }
+  
     const focusable = Array.from(
       document.querySelectorAll(
-        'input, select, textarea, button'
+        "input, select, textarea"
       )
-    ).filter(el => !el.disabled);
+    ).filter(
+      el => !el.disabled && el.offsetParent !== null
+    );
   
     const index = focusable.indexOf(e.target);
   
@@ -1383,6 +1394,7 @@ setErr('');
             <WeeklySchedulePicker 
               value={form.schedule} 
               onChange={(s) => f('schedule', s)} 
+              onKeyDown={handleEnterKey}
             />
             
             {err && <Alert type="error">{err}</Alert>}
@@ -1462,14 +1474,17 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
   
     const focusable = Array.from(
       document.querySelectorAll(
-        'input, select, textarea, button'
+        "input, select, textarea, button"
       )
     ).filter(el => !el.disabled);
   
     const index = focusable.indexOf(e.target);
   
-    if (index > -1 && index < focusable.length - 1) {
+    // Last input field (Phone)
+    if (index > -1 && index < focusable.length - 3) {
       focusable[index + 1].focus();
+    } else {
+      addRec();
     }
   }
 
@@ -1608,6 +1623,7 @@ setErr('');
   inputMode="numeric"
   onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
   placeholder="10-digit mobile number"
+  onKeyDown={handleEnterKey}
 />
             {err && <Alert type="error">{err}</Alert>}
             
@@ -1666,14 +1682,16 @@ setErr('');
   
     const focusable = Array.from(
       document.querySelectorAll(
-        'input, select, textarea, button'
+        "input, select, textarea, button"
       )
     ).filter(el => !el.disabled);
   
     const index = focusable.indexOf(e.target);
   
-    if (index > -1 && index < focusable.length - 1) {
+    if (index > -1 && index < focusable.length - 3) {
       focusable[index + 1].focus();
+    } else {
+      addPharmacist();
     }
   }
 
@@ -1740,7 +1758,7 @@ setErr('');
   inputMode="numeric"
   onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
   placeholder="10-digit mobile number"
-  
+  onKeyDown={handleEnterKey}
 />
             {err && <Alert type="error">{err}</Alert>}
             <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>

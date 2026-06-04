@@ -1739,7 +1739,7 @@ function ReturningPatientPanel({ patient, visits, doctors, patients, onRegistere
   );
 }
 
-function DoctorSelector({ doctors, patients, form, f }) {
+function DoctorSelector({ doctors, patients, form, f,handleEnter  }) {
   return (
     <Card>
       <h3 style={{ fontSize: 16, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>👨‍⚕️ Select Doctor</h3>
@@ -1754,7 +1754,9 @@ function DoctorSelector({ doctors, patients, form, f }) {
             const limit = doc.dailyTokenLimit ?? 0;
             const limitReached = limit > 0 && todayCount >= limit;
             return (
-              <div key={doc._id} onClick={() => { if (!limitReached) { f('doctorId', String(doc._id)); f('doctorName', doc.name); if (doc.fee) f('totalFee', String(doc.fee)); } }}
+              <div key={doc._id}  tabIndex={0}
+              role="button"
+              onKeyDown={handleEnter} onClick={() => { if (!limitReached) { f('doctorId', String(doc._id)); f('doctorName', doc.name); if (doc.fee) f('totalFee', String(doc.fee)); } }}
                 style={{ border: `2px solid ${isSelected ? 'var(--primary)' : limitReached ? '#e74c3c' : 'var(--border)'}`, borderRadius: 10, padding: '12px 14px', cursor: limitReached ? 'not-allowed' : 'pointer', background: isSelected ? 'var(--primary-light)' : limitReached ? 'rgba(231,76,60,0.04)' : 'var(--surface)', opacity: limitReached ? 0.7 : 1, transition: '.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <div>
@@ -1869,6 +1871,9 @@ function NewPatientForm({ doctors, patients, prefillPhone, onRegistered, onBack 
     if (index > -1 && fields[index + 1]) {
       fields[index + 1].focus();
     }
+    else{
+      register();
+    }
   };
   const init = { name: '', age: '', phone: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), whatsapp: (prefillPhone || '').replace(/\D/g, '').slice(0, 10), gender: 'male', symptoms: '', doctorId: '', doctorName: '', totalFee: '', paid: '', notes: '', paymentMethod: 'cash' };
   const [form, setForm] = useState(init);
@@ -1919,7 +1924,7 @@ function NewPatientForm({ doctors, patients, prefillPhone, onRegistered, onBack 
           </div>
         </Card>
         <div style={{ display: 'grid', gap: 16 }}>
-          <DoctorSelector doctors={doctors} patients={patients} form={form} f={f} />
+          <DoctorSelector doctors={doctors} patients={patients} form={form} f={f} handleEnter={handleEnter}/>
           <PaymentCard form={form} f={f} dues={dues} handleEnter={handleEnter}/>
           {err && <Alert type="error">{err}</Alert>}
           <Btn full size="lg" onClick={register} disabled={busy} onKeyDown={handleEnter}>{busy ? 'Registering…' : '🎫 Generate Token & Register'}</Btn>
@@ -2030,18 +2035,40 @@ function FollowUpInlineEditor({ patient: p, onSave, onCancel }) {
   const [note, setNote] = useState(p.followUpNote || '');
   const [busy, setBusy] = useState(false);
   const [err,  setErr]  = useState('');
+  const editorRef = useRef(null);
+  function handleEnter(e) {
+    if (e.key !== "Enter") return;
+  
+    e.preventDefault();
+  
+    const fields = Array.from(
+      editorRef.current.querySelectorAll(
+        "input, textarea, button"
+      )
+    ).filter(
+      el => !el.disabled && el.offsetParent !== null
+    );
+  
+    const index = fields.indexOf(e.target);
+  
+    if (index > -1 && fields[index + 1]) {
+      fields[index + 1].focus();
+    } else {
+      save();
+    }
+  }
   async function save() { setBusy(true); setErr(''); try { await onSave(date, note); } catch (e) { setErr(e.message); } finally { setBusy(false); } }
   return (
-    <div style={{ padding: '12px 16px 14px', background: 'rgba(124,58,237,0.04)', borderTop: '1px solid rgba(124,58,237,0.12)' }}>
+    <div ref={editorRef} style={{ padding: '12px 16px 14px', background: 'rgba(124,58,237,0.04)', borderTop: '1px solid rgba(124,58,237,0.12)' }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 }}>📅 Set Follow-up Date</div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>Date</div>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={getTodayIST()} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #c5d5e8', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0a3d62', fontWeight: 600 }} />
+          <input onKeyDown={handleEnter} type="date" value={date} onChange={(e) => setDate(e.target.value)} min={getTodayIST()} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #c5d5e8', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0a3d62', fontWeight: 600 }} />
         </div>
         <div style={{ flex: 1, minWidth: 160 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>Note (optional)</div>
-          <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Check blood pressure" style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1.5px solid #c5d5e8', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+          <input onKeyDown={handleEnter} type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Check blood pressure" style={{ width: '100%', padding: '6px 10px', borderRadius: 8, border: '1.5px solid #c5d5e8', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
         </div>
         <button onClick={save} disabled={busy || !date} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 700, cursor: busy || !date ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: !date ? 0.6 : 1 }}>{busy ? '…' : '✓ Save'}</button>
         {p.followUpDate && <button onClick={() => onSave('', '')} disabled={busy} style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #e0e0e0', background: '#fff', color: '#e74c3c', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>🗑 Clear</button>}

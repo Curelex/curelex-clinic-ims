@@ -25,10 +25,20 @@ const DOSAGE_OPTIONS = [
 ];
 
 // ── Autocomplete input ────────────────────────────────────────────────────────
-function AutocompleteInput({ value, onChange, suggestions = [], placeholder, style = {} }) {
+const AutocompleteInput = React.forwardRef(
+  (
+    {
+      value,
+      onChange,
+      suggestions = [],
+      placeholder,
+      style = {},
+      onKeyDown
+    },
+    ref
+  ) => {
   const [open,     setOpen]     = useState(false);
   const [filtered, setFiltered] = useState([]);
-  const ref = useRef(null);
 
   useEffect(() => {
     const q = (value || '').trim().toLowerCase();
@@ -49,8 +59,9 @@ function AutocompleteInput({ value, onChange, suggestions = [], placeholder, sty
   }, []);
 
   return (
-    <div ref={ref} style={{ position: 'relative', ...style }}>
+    <div style={{ position: 'relative', ...style }}>
       <input
+        ref={ref}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -58,6 +69,7 @@ function AutocompleteInput({ value, onChange, suggestions = [], placeholder, sty
           const q = (value || '').trim().toLowerCase();
           if (q && filtered.length > 0) setOpen(true);
         }}
+
         placeholder={placeholder}
         style={{
           width: '100%', padding: '7px 10px',
@@ -66,7 +78,11 @@ function AutocompleteInput({ value, onChange, suggestions = [], placeholder, sty
           boxSizing: 'border-box', color: '#0a3d62',
           transition: 'border-color .15s',
         }}
-        onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
+        onKeyDown={(e) => {
+    if (e.key === 'Escape') setOpen(false);
+
+    onKeyDown?.(e);
+  }}
       />
       {open && (
         <div style={{
@@ -93,10 +109,10 @@ function AutocompleteInput({ value, onChange, suggestions = [], placeholder, sty
       )}
     </div>
   );
-}
+})
 
 // ── Medicine row ──────────────────────────────────────────────────────────────
-function MedicineRow({ med, idx, suggestions, onChange, onRemove }) {
+function MedicineRow({ med, idx, suggestions, onChange, onRemove ,handleEnterKey ,inputRef}) {
   const f = (k, v) => onChange(idx, { ...med, [k]: v });
   return (
     <div style={{
@@ -122,10 +138,12 @@ function MedicineRow({ med, idx, suggestions, onChange, onRemove }) {
           Medicine Name *
         </label>
         <AutocompleteInput
+          ref={inputRef}
           value={med.name}
           onChange={(v) => f('name', v)}
           suggestions={suggestions}
           placeholder="e.g. Paracetamol 500mg"
+          onKeyDown={handleEnterKey}
         />
       </div>
 
@@ -135,6 +153,7 @@ function MedicineRow({ med, idx, suggestions, onChange, onRemove }) {
           <select
             value={med.dosage}
             onChange={(e) => f('dosage', e.target.value)}
+            onKeyDown={handleEnterKey}
             style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #d0dce8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0a3d62' }}
           >
             <option value="">Select dosage…</option>
@@ -146,6 +165,7 @@ function MedicineRow({ med, idx, suggestions, onChange, onRemove }) {
           <select
             value={med.frequency}
             onChange={(e) => f('frequency', e.target.value)}
+            onKeyDown={handleEnterKey}
             style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #d0dce8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0a3d62' }}
           >
             <option value="">Select frequency…</option>
@@ -160,6 +180,7 @@ function MedicineRow({ med, idx, suggestions, onChange, onRemove }) {
           <select
             value={med.duration}
             onChange={(e) => f('duration', e.target.value)}
+            onKeyDown={handleEnterKey}
             style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #d0dce8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0a3d62' }}
           >
             <option value="">Select duration…</option>
@@ -172,6 +193,7 @@ function MedicineRow({ med, idx, suggestions, onChange, onRemove }) {
             type="text"
             value={med.instructions}
             onChange={(e) => f('instructions', e.target.value)}
+            onKeyDown={handleEnterKey}
             placeholder="e.g. After meals, with water"
             style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #d0dce8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', color: '#0a3d62' }}
           />
@@ -182,7 +204,7 @@ function MedicineRow({ med, idx, suggestions, onChange, onRemove }) {
 }
 
 // ── Test row ──────────────────────────────────────────────────────────────────
-function TestRow({ test, idx, suggestions, onChange, onRemove }) {
+function TestRow({ test, idx, suggestions, onChange, onRemove,handleEnterKey, inputRef}) {
   const f = (k, v) => onChange(idx, { ...test, [k]: v });
   return (
     <div style={{
@@ -201,10 +223,12 @@ function TestRow({ test, idx, suggestions, onChange, onRemove }) {
         <div>
           <label style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, display: 'block', marginBottom: 3 }}>Test Name *</label>
           <AutocompleteInput
+          ref={inputRef}
             value={test.name}
             onChange={(v) => f('name', v)}
             suggestions={suggestions}
             placeholder="e.g. CBC, LFT, Urine R/E"
+            onKeyDown={handleEnterKey}
           />
         </div>
         <div>
@@ -213,6 +237,7 @@ function TestRow({ test, idx, suggestions, onChange, onRemove }) {
             type="text"
             value={test.instructions}
             onChange={(e) => f('instructions', e.target.value)}
+            onKeyDown={handleEnterKey}
             placeholder="e.g. Fasting, Morning sample"
             style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #d0dce8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', color: '#0a3d62' }}
           />
@@ -370,6 +395,9 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
 
   // ✅ FIX: useRef guard prevents duplicate API calls even if React re-renders mid-save
   const savingRef = useRef(false);
+  const saveBtnRef = useRef(null);
+  const firstMedicineRef = useRef(null);
+  const firstTestRef = useRef(null);
 
   const patientId = patient?._id || patient?.id;
 
@@ -415,7 +443,13 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
   const removeMedicine = (i) => setMedicines((p) => p.filter((_, idx) => idx !== i));
   const updateMedicine = (i, med) => setMedicines((p) => p.map((m, idx) => idx === i ? med : m));
 
-  const addTest    = () => setTests((p) => [...p, { name: '', instructions: '' }]);
+  const addTest = () => {
+    setTests((p) => [...p, { name: '', instructions: '' }]);
+  
+    setTimeout(() => {
+      firstTestRef.current?.focus();
+    }, 100);
+  };
   const removeTest = (i) => setTests((p) => p.filter((_, idx) => idx !== i));
   const updateTest = (i, t) => setTests((p) => p.map((m, idx) => idx === i ? t : m));
 
@@ -505,6 +539,53 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
     return ist.toISOString().split('T')[0];
   })();
 
+  function handleEnterKey(e) {
+    if (e.key !== "Enter") return;
+    if (
+      e.target.placeholder?.includes("Acute Pharyngitis")
+    ) {
+      e.preventDefault();
+    
+      if (medicines.length === 0) {
+        addMedicine();
+    
+        setTimeout(() => {
+          firstMedicineRef.current?.focus();
+        }, 100);
+      } else {
+        firstMedicineRef.current?.focus();
+      }
+    
+      return;
+    }
+    if (
+      e.target.tagName === "TEXTAREA" &&
+      e.key === "Enter"
+    ) {
+      e.preventDefault();
+    } else {
+      e.preventDefault();
+    }
+  
+    const modal = e.currentTarget.closest('[data-rx-modal]');
+  
+    const focusable = Array.from(
+      modal.querySelectorAll(
+         'input, textarea, select, button:not([data-skip-enter])'
+      )
+    ).filter(
+      el => !el.disabled && el.offsetParent !== null
+    );
+  
+    const index = focusable.indexOf(e.target);
+  
+    if (index < focusable.length - 1) {
+      focusable[index + 1].focus();
+    } else {
+      handleSave();
+    }
+  }
+
   return (
     <>
       <div
@@ -520,7 +601,7 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
         padding: '20px 16px', overflowY: 'auto',
       }}>
-        <div style={{
+        <div data-rx-modal style={{
           background: '#fff', borderRadius: 18, width: '100%', maxWidth: 720,
           boxShadow: '0 24px 80px rgba(0,0,0,0.25)', overflow: 'hidden',
           position: 'relative',
@@ -577,6 +658,7 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
                 type="text"
                 value={diagnosis}
                 onChange={(e) => setDiagnosis(e.target.value)}
+                onKeyDown={handleEnterKey}
                 placeholder="e.g. Acute Pharyngitis, UTI, Hypertension…"
                 style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #d0dce8', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', color: '#0a3d62' }}
               />
@@ -600,7 +682,8 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
                 </div>
               ) : (
                 medicines.map((med, i) => (
-                  <MedicineRow key={i} med={med} idx={i} suggestions={medSuggestions} onChange={updateMedicine} onRemove={removeMedicine} />
+                  <MedicineRow key={i} med={med} idx={i} suggestions={medSuggestions} onChange={updateMedicine} onRemove={removeMedicine} handleEnterKey={handleEnterKey} 
+                  inputRef={i === 0 ? firstMedicineRef : null}/>
                 ))
               )}
             </div>
@@ -623,7 +706,7 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
                 </div>
               ) : (
                 tests.map((test, i) => (
-                  <TestRow key={i} test={test} idx={i} suggestions={testSuggestions} onChange={updateTest} onRemove={removeTest} />
+                  <TestRow key={i} test={test} idx={i} suggestions={testSuggestions} onChange={updateTest} onRemove={removeTest} handleEnterKey={handleEnterKey} inputRef={i === 0 ? firstTestRef : null}/>
                 ))
               )}
             </div>
@@ -635,6 +718,7 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                onKeyDown={handleEnterKey}
                 placeholder="e.g. Drink plenty of water, Rest for 2 days, Avoid spicy food…"
                 rows={2}
                 style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #d0dce8', borderRadius: 10, fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical', boxSizing: 'border-box', color: '#0a3d62' }}
@@ -649,11 +733,20 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
                 type="date"
                 value={followUpDate}
                 onChange={(e) => setFollowUpDate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSave();
+                    return;
+                  }
+                }}
                 min={today}
                 style={{ padding: '8px 12px', border: '1.5px solid #d0dce8', borderRadius: 10, fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0a3d62', fontWeight: 600 }}
               />
               {followUpDate && (
                 <button
+                tabIndex={-1}
+                  data-skip-enter
                   onClick={() => setFollowUpDate('')}
                   style={{ marginLeft: 8, padding: '7px 10px', borderRadius: 8, border: '1px solid #e0e0e0', background: '#fff', color: '#e74c3c', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                 >🗑 Clear</button>
@@ -691,6 +784,7 @@ export default function PrescriptionModal({ patient, doctorUser, clinicName, onC
             )}
 
             <button
+            ref={saveBtnRef}
               onClick={handleSave}
               disabled={busy}
               style={{
