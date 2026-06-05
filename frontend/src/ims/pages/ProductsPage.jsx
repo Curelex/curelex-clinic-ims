@@ -8,6 +8,7 @@ import {
   getProductBarcode,
   getProductQr,
 } from "../services/productService";
+import { fetchInventory } from "../services/inventoryService";
 import { currency } from "../utils/format";
 
 const initialForm = {
@@ -30,22 +31,21 @@ const fieldLabels = {
 
 const numberFields = new Set(["mrpPrice", "costPrice", "price"]);
 
-// Expiry sort options
 const SORT_OPTIONS = [
-  { value: "none",    label: "No sorting" },
-  { value: "asc",     label: "Expiry: Earliest first" },
-  { value: "desc",    label: "Expiry: Latest first" },
+  { value: "asc",      label: "Expiry: Earliest first" },
+  { value: "desc",     label: "Expiry: Latest first" },
+  { value: "none",     label: "No sorting" },
   { value: "noexpiry", label: "No expiry date only" },
 ];
 
 const ProductsPage = () => {
   const { canWriteProducts } = usePermissions();
-  const [products, setProducts]   = useState([]);
-  const [form, setForm]           = useState(initialForm);
-  const [loading, setLoading]     = useState(false);
-  const [qrModal, setQrModal]     = useState(null);
-  const [search, setSearch]       = useState("");
-  const [expirySort, setExpirySort] = useState("asc"); // default: earliest first
+  const [products, setProducts]     = useState([]);
+  const [form, setForm]             = useState(initialForm);
+  const [loading, setLoading]       = useState(false);
+  const [qrModal, setQrModal]       = useState(null);
+  const [search, setSearch]         = useState("");
+  const [expirySort, setExpirySort] = useState("asc");
   const formRef = useRef(null);
 
   const handleEnter = (e) => {
@@ -62,10 +62,47 @@ const ProductsPage = () => {
     }
   };
 
+  // Load products + inventory together, merge expiry onto each product
   const loadProducts = async () => {
     try {
-      const data = await fetchProducts();
-      setProducts(data.data || []);
+      const [productData, inventoryData] = await Promise.all([
+        fetchProducts(),
+        fetchInventory(),
+      ]);
+
+      const productList   = productData.data   || [];
+      const inventoryList = inventoryData.data || [];
+
+      // Map: productId -> inventory record with earliest expiry
+      const inventoryMap = {};
+      for (const inv of inventoryList) {
+        const pid = inv.product?._id || inv.productId;
+        if (!pid) continue;
+        if (!inventoryMap[pid]) {
+          inventoryMap[pid] = inv;
+        } else {
+          // Keep earliest expiry (most urgent)
+          const existing = inventoryMap[pid].expiryDate;
+          const current  = inv.expiryDate;
+          if (current && (!existing || new Date(current) < new Date(existing))) {
+            inventoryMap[pid] = inv;
+          }
+        }
+      }
+
+      // Merge expiryDate + flags onto each product
+      const merged = productList.map((p) => {
+        const inv = inventoryMap[p._id];
+        return {
+          ...p,
+          expiryDate:     inv?.expiryDate     ?? null,
+          isExpired:      inv?.isExpired       ?? false,
+          isExpiringSoon: inv?.isExpiringSoon  ?? false,
+          inventory:      inv ?? p.inventory,
+        };
+      });
+
+      setProducts(merged);
     } catch {
       toast.error("Failed to load products");
     }
@@ -118,52 +155,43 @@ const ProductsPage = () => {
     }
   };
 
-  // ── Filter by search ───────────────────────────────────────────
-  const searchedProducts = products.filter((p) => {
+  // Search filter
+  const searched = products.filter((p) => {
     const q = search.toLowerCase();
     return (
       p.name?.toLowerCase().includes(q) ||
-      p.sku?.toLowerCase().includes(q) ||
-      String(p.mrpPrice).includes(q) ||
+      p.sku?.toLowerCase().includes(q)  ||
+      String(p.mrpPrice).includes(q)    ||
       String(p.price).includes(q)
     );
   });
 
-  // ── Sort by expiry ─────────────────────────────────────────────
-  const getExpiry = (p) => p.inventory?.expiryDate || p.expiryDate || null;
-
-  const sortedProducts = [...searchedProducts].sort((a, b) => {
+  // Expiry sort
+  const sorted = [...searched].sort((a, b) => {
     if (expirySort === "none") return 0;
-
-    const ea = getExpiry(a);
-    const eb = getExpiry(b);
-
+    const ea = a.expiryDate;
+    const eb = b.expiryDate;
     if (expirySort === "noexpiry") {
-      // no expiry first, then with expiry
       if (!ea && !eb) return 0;
       if (!ea) return -1;
       if (!eb) return 1;
       return 0;
     }
-
     if (expirySort === "asc") {
       if (!ea && !eb) return 0;
-      if (!ea) return 1;   // no expiry → bottom
+      if (!ea) return 1;
       if (!eb) return -1;
-      return new Date(ea) - new Date(eb); // earliest first
+      return new Date(ea) - new Date(eb);
     }
-
     if (expirySort === "desc") {
       if (!ea && !eb) return 0;
       if (!ea) return 1;
       if (!eb) return -1;
-      return new Date(eb) - new Date(ea); // latest first
+      return new Date(eb) - new Date(ea);
     }
-
     return 0;
   });
 
-  // ── Table columns ──────────────────────────────────────────────
   const columns = [
     { key: "name",      label: "Name" },
     { key: "sku",       label: "SKU",           render: (row) => row.sku },
@@ -175,14 +203,12 @@ const ProductsPage = () => {
       key: "expiryDate",
       label: "Expiry Date",
       render: (row) => {
-        const expiry = getExpiry(row);
-        if (!expiry) return <span className="text-slate-400 text-xs">—</span>;
-        const date     = new Date(expiry).toLocaleDateString("en-IN");
-        const isExpired     = new Date(expiry) < new Date();
-        const isExpiringSoon = !isExpired && (new Date(expiry) - new Date()) < 30 * 24 * 60 * 60 * 1000;
-        if (isExpired)
+        if (!row.expiryDate)
+          return <span className="text-slate-400 text-xs">—</span>;
+        const date = new Date(row.expiryDate).toLocaleDateString("en-IN");
+        if (row.isExpired)
           return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Expired · {date}</span>;
-        if (isExpiringSoon)
+        if (row.isExpiringSoon)
           return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Expiring soon · {date}</span>;
         return <span className="text-xs text-slate-600">{date}</span>;
       },
@@ -209,7 +235,6 @@ const ProductsPage = () => {
     },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
 
@@ -270,9 +295,8 @@ const ProductsPage = () => {
         </form>
       )}
 
-      {/* Search + Expiry Sort bar */}
+      {/* Search + Sort bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search input */}
         <div className="relative w-full sm:max-w-sm">
           <svg
             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -287,7 +311,7 @@ const ProductsPage = () => {
             placeholder="Search by name, SKU, price…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-brand-100 bg-white py-2 pl-9 pr-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            className="w-full rounded-lg border border-brand-100 bg-white py-2 pl-9 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
           />
           {search && (
             <button
@@ -299,7 +323,6 @@ const ProductsPage = () => {
           )}
         </div>
 
-        {/* Expiry sort dropdown */}
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-slate-500 whitespace-nowrap">
             Sort by expiry:
@@ -316,14 +339,13 @@ const ProductsPage = () => {
         </div>
       </div>
 
-      {/* Result count */}
       {search && (
         <p className="text-xs text-slate-400">
-          {sortedProducts.length} result{sortedProducts.length !== 1 ? "s" : ""} for "{search}"
+          {sorted.length} result{sorted.length !== 1 ? "s" : ""} for "{search}"
         </p>
       )}
 
-      <DataTable columns={columns} rows={sortedProducts} />
+      <DataTable columns={columns} rows={sorted} />
     </div>
   );
 };
