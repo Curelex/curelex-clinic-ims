@@ -14,7 +14,7 @@ const InventoryPage = () => {
     productId: "",
     adjustment: "",
     reason: "",
-    expiryDate: ""    // ← added
+    expiryDate: ""
   });
 
   const loadInventory = async () => {
@@ -33,12 +33,20 @@ const InventoryPage = () => {
       productId:  adjustForm.productId,
       adjustment: Number(adjustForm.adjustment),
       reason:     adjustForm.reason,
-      expiryDate: adjustForm.expiryDate || null    // ← added
+      expiryDate: adjustForm.expiryDate || null
     });
     toast.success("Stock adjusted");
     setAdjustForm({ productId: "", adjustment: "", reason: "", expiryDate: "" });
     await loadInventory();
   };
+
+  // Sort rows: earliest expiry date first, no expiry date goes to the bottom
+  const sortedRows = [...rows].sort((a, b) => {
+    if (!a.expiryDate && !b.expiryDate) return 0;
+    if (!a.expiryDate) return 1;   // no expiry → bottom
+    if (!b.expiryDate) return -1;  // no expiry → bottom
+    return new Date(a.expiryDate) - new Date(b.expiryDate); // earliest first
+  });
 
   const columns = [
     { key: "product",    label: "Product",  render: (row) => row.product?.name || "-" },
@@ -46,7 +54,7 @@ const InventoryPage = () => {
     { key: "quantity",   label: "Quantity" },
     {
       key: "expiryDate",
-      label: "Expiry Date",     // ← new column
+      label: "Expiry Date",
       render: (row) => {
         if (!row.expiryDate) return <span className="text-slate-400 text-xs">—</span>;
         const date = new Date(row.expiryDate).toLocaleDateString("en-IN");
@@ -102,7 +110,6 @@ const InventoryPage = () => {
             required
           />
 
-          {/* ← new expiry date field */}
           <input
             type="date"
             className="rounded-lg border border-brand-100 px-3 py-2 text-sm"
@@ -115,7 +122,7 @@ const InventoryPage = () => {
           </button>
         </form>
       )}
-      <DataTable columns={columns} rows={rows} />
+      <DataTable columns={columns} rows={sortedRows} />
     </div>
   );
 };
