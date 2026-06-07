@@ -513,10 +513,15 @@ const globalCSS = `
   .service-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, var(--brand), var(--teal)); opacity: 0; transition: opacity .3s; border-radius: 16px; }
   .service-card:hover::before { opacity: 1; }
   .service-card:hover { transform: translateY(-6px); box-shadow: 0 20px 50px rgba(10,61,98,.15); border-color: transparent; }
-  .service-card:hover .sc-title { color: #fff; }
-  .service-card:hover .sc-desc { color: rgba(255,255,255,.8); }
+  .service-card:hover .sc-title { color: #fff !important; }
+  .service-card:hover .sc-desc { color: rgba(255,255,255,.8) !important; }
   .service-card:hover .sc-arrow { color: #fff; transform: translateX(4px); }
   .service-card:hover .sc-icon { background: rgba(255,255,255,.2) !important; }
+  .service-card:hover .sc-title,
+.service-card:hover .sc-desc,
+.service-card:hover .sc-icon {
+  color: var(--surface) !important;
+}
 
   .benefit-item:hover { border-color: var(--teal); box-shadow: 0 8px 24px rgba(0,184,148,.1); transform: translateX(4px); }
   .testimonial-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(10,61,98,.1); border-color: rgba(0,184,148,.3); }
@@ -1045,10 +1050,27 @@ setLoading(true);
         <div className="hero-blob blob3" />
         <div className="hero-grid sec-inner" style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }}>
           <div className="reveal">
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(0,184,148,.1)', border: '1px solid rgba(0,184,148,.3)', borderRadius: 20, padding: '6px 16px', fontSize: 13, color: 'var(--teal)', fontWeight: 600, marginBottom: 20 }}>
-              <span className="hero-badge-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--teal)' }} />
-              Trusted by 500+ Clinics Across India
-            </div>
+            <div style={{ 
+  display: 'inline-flex', 
+  alignItems: 'center', 
+  gap: 8, 
+  background: darkMode ? 'rgba(0,184,148,0.2)' : 'rgba(0,184,148,.1)', 
+  border: darkMode ? '1px solid rgba(0,184,148,0.4)' : '1px solid rgba(0,184,148,.3)', 
+  borderRadius: 20, 
+  padding: '6px 16px', 
+  fontSize: 13, 
+  color: darkMode ? '#00cec9' : 'var(--teal)', 
+  fontWeight: 600, 
+  marginBottom: 20 
+}}>
+  <span className="hero-badge-dot" style={{ 
+    width: 7, 
+    height: 7, 
+    borderRadius: '50%', 
+    background: darkMode ? '#00cec9' : 'var(--teal)' 
+  }} />
+  Trusted by 500+ Clinics Across India
+</div>
             <h1 style={{ fontFamily: "'Sora', sans-serif", fontSize: 'clamp(34px,5vw,56px)', fontWeight: 800, lineHeight: 1.1, color: 'var(--text)', marginBottom: 18, letterSpacing: -1.5 }}>
               Smart Patient Flow<br />for{' '}
               <span style={{ background: 'linear-gradient(135deg,var(--brand2),var(--teal))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Modern Clinics</span>
@@ -1065,71 +1087,392 @@ setLoading(true);
               </button>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 32 }}>
-              {['24/7 Support', 'Smart Queue System', 'Patient Management', 'Live Analytics'].map(pill => (
-                <div key={pill} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(10,61,98,.06)', border: '1px solid rgba(10,61,98,.1)', borderRadius: 20, padding: '6px 14px', fontSize: 12.5, fontWeight: 500, color: 'var(--brand)' }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--teal)', display: 'inline-block' }} />
-                  {pill}
-                </div>
-              ))}
-            </div>
+  {['24/7 Support', 'Smart Queue System', 'Patient Management', 'Live Analytics'].map(pill => (
+    <div key={pill} style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 6, 
+      background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(10,61,98,.06)', 
+      border: darkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(10,61,98,.1)', 
+      borderRadius: 20, 
+      padding: '6px 14px', 
+      fontSize: 12.5, 
+      fontWeight: 500, 
+      color: darkMode ? '#ffffff' : 'var(--brand)' 
+    }}>
+      <span style={{ 
+        width: 6, 
+        height: 6, 
+        borderRadius: '50%', 
+        background: darkMode ? '#00cec9' : 'var(--teal)', 
+        display: 'inline-block' 
+      }} />
+      {pill}
+    </div>
+  ))}
+</div>
             <div className="hero-stats" style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-              {[['500+', 'Clinics Active'], ['2M+', 'Patients Served'], ['40%', 'Wait Time Reduced']].map(([num, label]) => (
-                <div key={label}>
-                  <div style={{ fontFamily: "'Sora', sans-serif", fontSize: 26, fontWeight: 800, color: 'var(--brand)', lineHeight: 1 }}>{num}</div>
-                  <div style={{ fontSize: 12, color: 'var(--light)', fontWeight: 500, marginTop: 2 }}>{label}</div>
-                </div>
-              ))}
-            </div>
+  {[['500+', 'Clinics Active'], ['2M+', 'Patients Served'], ['40%', 'Wait Time Reduced']].map(([num, label]) => (
+    <div key={label}>
+      <div style={{ 
+        fontFamily: "'Sora', sans-serif", 
+        fontSize: 26, 
+        fontWeight: 800, 
+        color: darkMode ? '#ffffff' : 'var(--brand)', 
+        lineHeight: 1 
+      }}>{num}</div>
+      <div style={{ 
+        fontSize: 12, 
+        color: darkMode ? 'rgba(255,255,255,0.7)' : 'var(--light)', 
+        fontWeight: 500, 
+        marginTop: 2 
+      }}>{label}</div>
+    </div>
+  ))}
+</div>
           </div>
 
-          <div className="hero-visual reveal" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', transitionDelay: '.2s' }}>
-            {/* Floating badge top */}
-            <div className="floating-badge fb1" style={{ position: 'absolute', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', boxShadow: '0 10px 40px rgba(10,61,98,.12)', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: 'var(--text)', top: -20, right: -30 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,184,148,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>✅</div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>Queue Optimized</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>8 patients ahead</div>
+          <div
+  className="hero-visual reveal"
+  style={{
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transitionDelay: '.2s',
+  }}
+>
+  {/* Floating badge top */}
+  <div
+    className="floating-badge fb1"
+    style={{
+      position: 'absolute',
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '10px 14px',
+      boxShadow: '0 10px 40px rgba(10,61,98,.12)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      whiteSpace: 'nowrap',
+      fontSize: 12,
+      fontWeight: 500,
+      color: 'var(--text)',
+
+      top: 0,
+      left: '70%',
+      transform: 'translateX(-50%)',
+      zIndex: 5,
+    }}
+  >
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        background: 'rgba(0,184,148,.12)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 14,
+      }}
+    >
+      ✅
+    </div>
+
+    <div>
+      <div
+        style={{
+          fontWeight: 600,
+          fontSize: 12,
+          color: 'var(--text)',
+        }}
+      >
+        Queue Optimized
+      </div>
+
+      <div
+        style={{
+          fontSize: 11,
+          color: 'var(--muted)',
+        }}
+      >
+        8 patients ahead
+      </div>
+    </div>
+  </div>
+
+  {/* Main card */}
+  <div
+    className="hero-card-main"
+    style={{
+      marginTop: 35,
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 20,
+      padding: 24,
+      boxShadow: '0 30px 80px rgba(10,61,98,.15)',
+      width: '100%',
+      maxWidth: 360,
+      position: 'relative',
+    }}
+  >
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 16,
+      }}
+    >
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          background:
+            'linear-gradient(135deg,var(--brand),var(--teal))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontWeight: 700,
+          fontSize: 14,
+        }}
+      >
+        🏥
+      </div>
+
+      <div style={{ flex: 1 }}>
+        <div
+          style={{
+            fontWeight: 600,
+            fontSize: 14,
+            color: 'var(--text)',
+          }}
+        >
+          City Medical Centre
+        </div>
+
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--muted)',
+          }}
+        >
+          Live Queue · Today
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: 'rgba(0,184,148,.1)',
+          color: 'var(--teal)',
+          fontSize: 11,
+          fontWeight: 600,
+          padding: '3px 10px',
+          borderRadius: 20,
+        }}
+      >
+        ● Live
+      </div>
+    </div>
+
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      {[
+        {
+          num: '01',
+          numBg:
+            'linear-gradient(135deg,var(--brand2),var(--teal))',
+          name: 'Rahul Sharma',
+          wait: 'Consulting now',
+          badge: 'In Progress',
+          badgeBg: 'rgba(0,184,148,.12)',
+          badgeColor: 'var(--teal)',
+          opacity: 1,
+        },
+        {
+          num: '02',
+          numBg: 'linear-gradient(135deg,#e17055,#d63031)',
+          name: 'Priya Patel',
+          wait: '~5 min wait',
+          badge: 'Waiting',
+          badgeBg: 'rgba(253,203,110,.15)',
+          badgeColor: '#e17055',
+          opacity: 1,
+        },
+        {
+          num: '03',
+          numBg: 'linear-gradient(135deg,#6c5ce7,#a29bfe)',
+          name: 'Ankit Verma',
+          wait: '~12 min wait',
+          badge: 'Waiting',
+          badgeBg: 'rgba(253,203,110,.15)',
+          badgeColor: '#e17055',
+          opacity: 1,
+        },
+        {
+          num: '✓',
+          numBg: '#d0dce8',
+          numColor: 'var(--muted)',
+          name: 'Sneha Joshi',
+          wait: 'Completed · 10:32 AM',
+          badge: 'Done',
+          badgeBg: 'rgba(108,92,231,.1)',
+          badgeColor: '#6c5ce7',
+          opacity: 0.6,
+        },
+      ].map(
+        (
+          {
+            num,
+            numBg,
+            numColor,
+            name,
+            wait,
+            badge,
+            badgeBg,
+            badgeColor,
+            opacity,
+          },
+          i
+        ) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              background: 'var(--surface2)',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              opacity,
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: numBg,
+                color: numColor || '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              {num}
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--text)',
+                }}
+              >
+                {name}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  color: 'var(--muted)',
+                }}
+              >
+                {wait}
               </div>
             </div>
 
-            {/* Main card */}
-            <div className="hero-card-main" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 24, boxShadow: '0 30px 80px rgba(10,61,98,.15)', width: '100%', maxWidth: 360, position: 'relative' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,var(--brand),var(--teal))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>🏥</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>City Medical Centre</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Live Queue · Today</div>
-                </div>
-                <div style={{ background: 'rgba(0,184,148,.1)', color: 'var(--teal)', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>● Live</div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { num: '01', numBg: 'linear-gradient(135deg,var(--brand2),var(--teal))', name: 'Rahul Sharma', wait: 'Consulting now', badge: 'In Progress', badgeBg: 'rgba(0,184,148,.12)', badgeColor: 'var(--teal)', opacity: 1 },
-                  { num: '02', numBg: 'linear-gradient(135deg,#e17055,#d63031)', name: 'Priya Patel', wait: '~5 min wait', badge: 'Waiting', badgeBg: 'rgba(253,203,110,.15)', badgeColor: '#e17055', opacity: 1 },
-                  { num: '03', numBg: 'linear-gradient(135deg,#6c5ce7,#a29bfe)', name: 'Ankit Verma', wait: '~12 min wait', badge: 'Waiting', badgeBg: 'rgba(253,203,110,.15)', badgeColor: '#e17055', opacity: 1 },
-                  { num: '✓', numBg: '#d0dce8', numColor: 'var(--muted)', name: 'Sneha Joshi', wait: 'Completed · 10:32 AM', badge: 'Done', badgeBg: 'rgba(108,92,231,.1)', badgeColor: '#6c5ce7', opacity: 0.6 },
-                ].map(({ num, numBg, numColor, name, wait, badge, badgeBg, badgeColor, opacity }, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)', opacity }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: numBg, color: numColor || '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{num}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{wait}</div>
-                    </div>
-                    <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: badgeBg, color: badgeColor }}>{badge}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Floating badge bottom */}
-            <div className="floating-badge fb2" style={{ position: 'absolute', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', boxShadow: '0 10px 40px rgba(10,61,98,.12)', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: 'var(--text)', bottom: -10, left: -30 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(21,101,168,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📊</div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>Today's Stats</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>32 patients · 98% on-time</div>
-              </div>
-            </div>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: 6,
+                background: badgeBg,
+                color: badgeColor,
+              }}
+            >
+              {badge}
+            </span>
           </div>
+        )
+      )}
+    </div>
+  </div>
+
+  {/* Floating badge bottom */}
+  <div
+    className="floating-badge fb2"
+    style={{
+      position: 'absolute',
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '10px 14px',
+      boxShadow: '0 10px 40px rgba(10,61,98,.12)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      whiteSpace: 'nowrap',
+      fontSize: 12,
+      fontWeight: 500,
+      color: 'var(--text)',
+      bottom: -10,
+      left: -30,
+      zIndex: 5,
+    }}
+  >
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        background: 'rgba(21,101,168,.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 14,
+      }}
+    >
+      📊
+    </div>
+
+    <div>
+      <div
+        style={{
+          fontWeight: 600,
+          fontSize: 12,
+          color: 'var(--text)',
+        }}
+      >
+        Today's Stats
+      </div>
+
+      <div
+        style={{
+          fontSize: 11,
+          color: 'var(--muted)',
+        }}
+      >
+        32 patients · 98% on-time
+      </div>
+    </div>
+  </div>
+</div>
         </div>
       </section>
 
