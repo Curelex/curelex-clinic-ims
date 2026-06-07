@@ -51,7 +51,7 @@ export function useQueueSocket({ sessionToken, clinicId, doctorId, date, myToken
     socket.on('connect', () => {
       setConnected(true);
       setError(null);
-      console.log('🔌 Clinic Socket connected:', socket.id);
+      
 
       // Join the room for this specific doctor's queue
       socket.emit('join_queue', { clinicId, doctorId, date });
@@ -69,7 +69,7 @@ export function useQueueSocket({ sessionToken, clinicId, doctorId, date, myToken
     });
 
     socket.on('queue_update', (raw) => {
-      console.log('📡 queue_update received:', raw);
+      
       setQueueData(enrichQueueData(raw, myToken));
     });
 

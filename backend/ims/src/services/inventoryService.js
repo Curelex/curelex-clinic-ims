@@ -7,7 +7,7 @@ import mongoose from "mongoose"; // ✅ ADD
 mongoose.connection.once("open", async () => {
   try {
     await mongoose.connection.collection("inventories").dropIndex("product_1");
-    console.log("[Inventory] Old index dropped ✅");
+    
   } catch (e) {
     console.log("[Inventory] Index already removed");
   }

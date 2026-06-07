@@ -339,12 +339,12 @@ function PincodeField({ value, onChange, onAutoFill, S, disabled,...rest }) {
     setStatus(null);
   
     if (val.length === 6) {
-      console.log("Calling API...");
+      
       setStatus('loading');
   
       const data = await fetchPincodeData(val);
   
-      console.log("API DATA:", data);
+      
   
       if (data) {
         onAutoFill(
@@ -676,7 +676,7 @@ export default function LandingPage() {
     cities,
     subDistricts
   ) {
-    console.log("AUTOFILL HIT");
+    
   
     setApiCities(cities || []);
   
@@ -739,10 +739,7 @@ setLoading(true);
       const data =
         await apiRegister(form);
   
-      console.log(
-        "REGISTER RESPONSE:",
-        data
-      );
+      
   
       login({
         token: data.token,
@@ -786,7 +783,7 @@ setLoading(true);
   setLoading(true);
 
   try {
-    console.log("STEP 1");
+  
 
     const data = await apiLogin(
       role,
@@ -794,7 +791,7 @@ setLoading(true);
       form.password
     );
 
-    console.log("STEP 2 LOGIN RESPONSE:", data);
+  
 
     login({
       token: data.token,
@@ -807,11 +804,11 @@ setLoading(true);
         null
     });
 
-    console.log("STEP 3 LOGIN CALLED");
+    
 
     navigate('/clinic');
 
-    console.log("STEP 4 NAVIGATED");
+    
 
   } catch (e) {
     console.error("LOGIN ERROR:", e);

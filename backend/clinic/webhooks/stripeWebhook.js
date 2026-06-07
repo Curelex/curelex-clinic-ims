@@ -27,7 +27,7 @@ router.post(
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    console.log(`[Stripe Webhook] Received event: ${event.type}`);
+    
 
     try {
       await handleStripeEvent(event);
@@ -88,7 +88,7 @@ async function handleStripeEvent(event) {
 
       // Downgrade clinic plan
       await Clinic.findByIdAndUpdate(clinicId, { plan: 'lite' });
-      console.log(`[Stripe Webhook] Clinic ${clinicId} downgraded to lite (subscription deleted)`);
+      
       break;
     }
 
@@ -162,7 +162,7 @@ async function upsertSubscription(clinicId, stripeSub, planKey = 'lite') {
   // Sync plan onto the Clinic document so planConfig.js picks it up
   await Clinic.findByIdAndUpdate(clinicId, { plan: planKey });
 
-  console.log(`[Stripe Webhook] Clinic ${clinicId} updated → plan:${planKey}, status:${status}`);
+  
 }
 
 export default router;

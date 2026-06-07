@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
       if (!token) { setLoading(false); return; }
       try {
         const { user: currentUser } = await getMe();
-        console.log("bootstrap getMe success:", currentUser); // ← DEBUG
+        
         setUser(currentUser);
       } catch (error) {
         // ✅ FIXED — log the error instead of silently removing token

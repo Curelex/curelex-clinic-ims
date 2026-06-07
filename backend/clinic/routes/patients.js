@@ -26,7 +26,7 @@ async function broadcastQueueUpdate(io, clinicId, doctorId, date) {
 
     const room = `queue_${clinicId}_${doctorId}_${date}`;
     io.to(room).emit('queue_update', payload);
-    console.log(`📡 Broadcasted queue_update to room: ${room}`);
+    
   } catch (err) {
     console.error('broadcastQueueUpdate error:', err.message);
   }

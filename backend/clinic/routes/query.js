@@ -58,10 +58,6 @@ router.post("/", async (req, res) => {
         message,
       });
 
-    console.log(
-      "New Query Saved:",
-      newQuery
-    );
 
     res.status(201).json({
       success: true,
